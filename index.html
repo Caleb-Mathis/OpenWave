@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wavest</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Main Header -->
+        <header class="app-header">
+            <div class="header-logo">
+                <svg class="logo-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="12 3 21 19 3 19" />
+                    <path d="M8 13c1-1.5 2-1.5 3 0s2 1.5 3 0 2-1.5 3 0" />
+                </svg>
+                <div class="logo-text">
+                    <h1>Wavest</h1>
+                </div>
+            </div>
+            <div class="header-status">
+                <span id="status-indicator" class="status-dot offline"></span>
+                <span id="status-text" class="status-label">INITIALIZING...</span>
+            </div>
+            <button id="open-settings-btn" class="icon-btn" aria-label="Open Settings">
+                <svg class="settings-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- Visualizer Area -->
+        <section class="visualizer-container">
+            <div class="visualizer-header">
+                <span class="panel-label">SIGNAL VISUALIZER</span>
+                <div class="visualizer-tabs">
+                    <button id="tab-spectrogram" class="viz-tab active">SPECTROGRAM</button>
+                    <button id="tab-oscilloscope" class="viz-tab">WAVEFORM</button>
+                </div>
+            </div>
+            <div class="canvas-wrapper">
+                <canvas id="spectrogram-canvas"></canvas>
+                <canvas id="oscilloscope-canvas" class="hidden"></canvas>
+            </div>
+        </section>
+
+        <!-- Chat Area -->
+        <section class="chat-container">
+            <div class="chat-header">
+                <span class="panel-label">ACOUSTIC CHANNEL FEED</span>
+                <span id="active-protocol-lbl" class="protocol-chip">AUDIBLE_FAST</span>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+                <div class="message system">
+                    <div class="msg-content">
+                        <strong>WELCOME TO WAVEST</strong>
+                        <p>This application transmits and decodes text data using high-frequency sound waves. It runs 100% locally and offline.</p>
+                        <p class="subtext">Configure parameters or run diagnostics in the settings panel (top right).</p>
+                    </div>
+                    <span class="msg-time">SYSTEM</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Templates -->
+        <section class="chips-container">
+            <button class="msg-chip" onclick="useTemplate('Ping')">Ping</button>
+            <button class="msg-chip" onclick="useTemplate('Hello World!')">Hello World!</button>
+            <button class="msg-chip" onclick="useTemplate('Status OK')">Status OK</button>
+            <button class="msg-chip" onclick="useTemplate('SOS Help')">SOS Help</button>
+        </section>
+
+        <!-- Input Section -->
+        <footer class="input-container">
+            <div class="input-wrapper">
+                <input type="text" id="message-input" placeholder="Type a message to transmit..." autocomplete="off">
+                <button id="send-btn" class="send-btn" disabled>
+                    <span class="send-icon">▲</span>
+                </button>
+            </div>
+            <div id="tx-wave-wrapper" class="tx-wave-wrapper hidden">
+                <canvas id="tx-wave-canvas"></canvas>
+            </div>
+            <div class="rx-status-bar">
+                <span id="rx-state-icon">🎤</span>
+                <span id="rx-state-text">Tap "Start Capture" below to listen...</span>
+                <button id="capture-toggle-btn" class="capture-btn">Start Capture</button>
+            </div>
+        </footer>
+
+        <!-- Settings Sidebar / Drawer -->
+        <div id="settings-sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>SETTINGS & DIAGNOSTICS</h3>
+                <button id="close-settings-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="sidebar-content">
+                <!-- Protocol Selection -->
+                <div class="settings-group">
+                    <label for="protocol-select">Acoustic Protocol</label>
+                    <select id="protocol-select">
+                        <option value="0">Audible (Normal)</option>
+                        <option value="1" selected>Audible (Fast)</option>
+                        <option value="2">Audible (Fastest)</option>
+                        <option value="3">Ultrasound (Normal)</option>
+                        <option value="4">Ultrasound (Fast)</option>
+                        <option value="5">Ultrasound (Fastest)</option>
+                        <option value="6">Inaudible (Normal)</option>
+                        <option value="7">Inaudible (Fast)</option>
+                        <option value="8">Inaudible (Fastest)</option>
+                    </select>
+                    <small class="help-text">Audible protocols are robust in noisy rooms. Ultrasound (18kHz+) and Inaudible (20kHz+) ranges are silent to human ears, but may be less robust in some environments.</small>
+                </div>
+
+                <!-- Volume Setting -->
+                <div class="settings-group">
+                    <label for="volume-range">Tx Volume (<span id="volume-val">60</span>%)</label>
+                    <input type="range" id="volume-range" min="10" max="100" value="60">
+                </div>
+
+                <!-- Mic Sensitivity -->
+                <div class="settings-group">
+                    <label for="sensitivity-range">Rx Gain (<span id="sensitivity-val">1.0</span>x)</label>
+                    <input type="range" id="sensitivity-range" min="0.5" max="3.0" step="0.1" value="1.0">
+                </div>
+
+                <!-- Audio Settings -->
+                <div class="settings-group">
+                    <div class="toggle-row">
+                        <label for="sound-feedback-toggle">Tx Audio Feedback</label>
+                        <input type="checkbox" id="sound-feedback-toggle" checked>
+                    </div>
+                    <small class="help-text">Plays a confirmation chime before transmitting data waves.</small>
+                </div>
+
+                <!-- Template Chips Settings -->
+                <div class="settings-group">
+                    <div class="toggle-row">
+                        <label for="chips-toggle">Show Quick Templates</label>
+                        <input type="checkbox" id="chips-toggle" checked>
+                    </div>
+                    <small class="help-text">Shows quick template words above the input field.</small>
+                </div>
+
+                <div class="settings-divider"></div>
+
+                <!-- Secure Communication (Callsign & Encryption) -->
+                <div class="settings-group">
+                    <h4>SECURE COMMUNICATION</h4>
+                    <label for="callsign-input">My Callsign</label>
+                    <input type="text" id="callsign-input" placeholder="WavestUser" value="WavestUser">
+                    
+                    <label for="passkey-input" style="margin-top: 8px;">My Encryption Passkey (Optional)</label>
+                    <input type="password" id="passkey-input" placeholder="Optional key to encrypt outgoing msgs">
+                    
+                    <label for="contacts-input" style="margin-top: 8px;">Contact Decryption Keys (one per line)</label>
+                    <textarea id="contacts-input" placeholder="Callsign:Key&#10;e.g. Benn:secret123" rows="3" style="resize: none;"></textarea>
+                    <small class="help-text">Add your friends' callsigns and keys to decrypt their incoming messages.</small>
+                </div>
+
+                <div class="settings-divider"></div>
+
+                <!-- Self-test -->
+                <div class="settings-group">
+                    <h4>SYSTEM DIAGNOSTICS</h4>
+                    <p class="diag-desc">Generates a local diagnostic signal to test the WebAssembly compiler and audio loopback.</p>
+                    <button id="loopback-test-btn" class="action-btn">Run Loopback Self-Test</button>
+                    <div id="test-result" class="test-result"></div>
+                </div>
+
+                <!-- Clear History -->
+                <div class="settings-group">
+                    <button id="clear-chat-btn" class="action-btn danger">Clear Chat Feed</button>
+                </div>
+
+                <div class="settings-divider"></div>
+
+                <!-- Attribution Footer -->
+                <div class="settings-attribution">
+                    <p>Wavest v0.91 by Benn Jordan.</p>
+                    <p>Based on GGWave/Waver by Georgi Gerganov.</p>
+                </div>
+            </div>
+        </div>
+        <div id="sidebar-overlay" class="overlay"></div>
+    </div>
+
+    <!-- Core Scripts -->
+    <script src="ggwave.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
