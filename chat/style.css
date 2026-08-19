@@ -412,7 +412,7 @@ html.layout-debug-on .composer::after {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: calc(var(--composer-pad-bottom) + 50px + var(--kb-inset, 0px));
+    bottom: calc(var(--composer-pad-bottom) + 56px + var(--kb-inset, 0px));
     width: 100%;
     height: 36%;
     max-height: 260px;
@@ -429,7 +429,7 @@ html.layout-debug-on .composer::after {
 }
 
 .keyboard-open .send-viz {
-    bottom: calc(58px + var(--kb-inset, 0px));
+    bottom: calc(64px + var(--kb-inset, 0px));
 }
 
 .chat-container::before,
@@ -462,7 +462,7 @@ html.layout-debug-on .composer::after {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    padding: calc(env(safe-area-inset-top, 20px) + 136px) 14px calc(var(--composer-pad-bottom) + 56px + var(--kb-inset, 0px));
+    padding: calc(env(safe-area-inset-top, 20px) + 136px) 14px calc(var(--composer-pad-bottom) + 62px + var(--kb-inset, 0px));
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     overflow-anchor: none;
@@ -587,14 +587,14 @@ html.layout-debug-on .composer::after {
 
 .composer-row {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 8px;
 }
 
 .mic-btn {
-    flex: 0 0 40px;
-    width: 40px;
-    height: 40px;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
     border: 0.5px solid var(--glass-stroke);
     border-radius: 50%;
     background: var(--glass-tint);
@@ -609,8 +609,8 @@ html.layout-debug-on .composer::after {
 }
 
 .mic-btn .mic-icon {
-    width: 18px;
-    height: 18px;
+    width: 19px;
+    height: 19px;
 }
 
 .mic-btn:active {
@@ -627,14 +627,14 @@ html.layout-debug-on .composer::after {
     flex: 1;
     min-width: 0;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     background: var(--input-bg);
     backdrop-filter: saturate(190%) blur(28px);
     -webkit-backdrop-filter: saturate(190%) blur(28px);
     border: 0.5px solid var(--input-border);
-    border-radius: 22px;
+    border-radius: 24px;
     box-shadow: var(--glass-shadow);
-    padding: 3px 3px 3px 14px;
+    padding: 3px 3px 3px 15px;
 }
 
 #message-input {
@@ -643,20 +643,21 @@ html.layout-debug-on .composer::after {
     border: none;
     background: transparent;
     color: var(--text);
-    font: 400 17px/22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font: 400 18px/24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     letter-spacing: -0.24px;
-    padding: 7px 8px 7px 0;
+    padding: 6px 10px 6px 0;
     outline: none;
 }
 
 #message-input::placeholder {
     color: var(--text-tertiary);
+    font-size: 18px;
 }
 
 .send-btn {
-    width: 32px;
-    height: 32px;
-    margin: 1px;
+    width: 36px;
+    height: 36px;
+    margin: 0;
     border: none;
     border-radius: 50%;
     background: var(--accent);
@@ -670,8 +671,8 @@ html.layout-debug-on .composer::after {
 }
 
 .send-btn svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
 }
 
 .send-btn:disabled {
