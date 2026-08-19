@@ -4,6 +4,10 @@ let microphoneStream = null;
 let mediaStreamNode = null;
 let analyserNode = null;
 let recorderNode = null;
+let recorderSilentGain = null;
+let recorderDummyDest = null;
+let captureWorkletNode = null;
+let captureWorkletLoaded = false;
 
 // ggwave Global instances
 let ggwave = null;
@@ -19,6 +23,18 @@ let rxGain = 1.0; // Microphone input gain multiplier
 let isCapturing = false;
 let isTransmitting = false;
 let soundFeedbackEnabled = true;
+let micAccessGranted = localStorage.getItem('wavest_mic_granted') === '1';
+let rxDuringTx = false;
+let rxDebugTimer = null;
+let rxDebug = {
+    backend: 'idle',
+    buffers: 0,
+    windowBuffers: 0,
+    buffersPerSec: 0,
+    rms: 0,
+    hits: 0,
+    lastPayload: '—'
+};
 
 // Secure Communication State
 let myCallsign = 'WavestUser';
@@ -26,8 +42,8 @@ let myPasskey = '';
 let contactKeys = {};
 
 // Visualization configuration
-let activeVizTab = 'spectrogram'; // 'spectrogram' or 'oscilloscope'
 let animationFrameId = null;
+let sendVizRaf = null;
 
 // DOM Elements
 const statusIndicator = document.getElementById('status-indicator');
@@ -40,10 +56,9 @@ const rxStateText = document.getElementById('rx-state-text');
 const captureToggleBtn = document.getElementById('capture-toggle-btn');
 const activeProtocolLbl = document.getElementById('active-protocol-lbl');
 
-// Transmit Visualizer DOM
-const txWaveWrapper = document.getElementById('tx-wave-wrapper');
-const txWaveCanvas = document.getElementById('tx-wave-canvas');
-const txWaveCtx = txWaveCanvas ? txWaveCanvas.getContext('2d') : null;
+// Send spectrogram (decorative, transmit-only)
+const sendVizCanvas = document.getElementById('send-viz-canvas');
+const sendVizCtx = sendVizCanvas ? sendVizCanvas.getContext('2d') : null;
 
 // Settings Sidebar DOM
 const settingsSidebar = document.getElementById('settings-sidebar');
@@ -59,12 +74,10 @@ const soundFeedbackToggle = document.getElementById('sound-feedback-toggle');
 const loopbackTestBtn = document.getElementById('loopback-test-btn');
 const testResult = document.getElementById('test-result');
 const clearChatBtn = document.getElementById('clear-chat-btn');
-
-// Canvas DOM
-const spectrogramCanvas = document.getElementById('spectrogram-canvas');
-const spectrogramCtx = spectrogramCanvas.getContext('2d');
-const oscilloscopeCanvas = document.getElementById('oscilloscope-canvas');
-const oscilloscopeCtx = oscilloscopeCanvas.getContext('2d');
+const navListenState = document.getElementById('nav-listen-state');
+const engineStatusLabel = document.getElementById('engine-status-label');
+const engineStatusDetail = document.getElementById('engine-status-detail');
+const appToast = document.getElementById('app-toast');
 
 // Instantiate ggwave on page load
 window.addEventListener('DOMContentLoaded', () => {
@@ -72,17 +85,13 @@ window.addEventListener('DOMContentLoaded', () => {
     resizeCanvases();
     window.addEventListener('resize', resizeCanvases);
 
-    // Initial status
-    statusIndicator.className = 'status-dot offline';
-    statusText.innerText = 'INITIALIZING ENGINE...';
+    applyTheme('midnight', false);
+    setEngineStatus('init', 'Starting ggwave…');
 
     // Hook up ggwave factory
     if (typeof ggwave_factory !== 'undefined') {
         ggwave_factory().then((obj) => {
             ggwave = obj;
-            statusIndicator.className = 'status-dot online';
-            statusText.innerText = 'ENGINE READY';
-            sendBtn.disabled = false;
             console.log('ggwave WASM engine loaded successfully');
             
             // Map protocol selection values to Emscripten Enum objects
@@ -95,17 +104,18 @@ window.addEventListener('DOMContentLoaded', () => {
                     4: ggwave.ProtocolId.GGWAVE_PROTOCOL_ULTRASOUND_FAST,
                     5: ggwave.ProtocolId.GGWAVE_PROTOCOL_ULTRASOUND_FASTEST
                 };
-                currentProtocolId = protocolsMap[1]; // Default to Audible (Fast)
+                currentProtocolId = getActiveProtocol(); // Default: Ultrasound (Fastest)
             }
-            appendSystemMessage('SYSTEM DIAGNOSTICS', 'ggwave WebAssembly engine successfully initialized locally.');
+            setEngineStatus('ready', 'ggwave WebAssembly engine successfully initialized locally.');
+            updateSendEnabled();
         }).catch((err) => {
             console.error('Failed to load ggwave WASM factory:', err);
-            statusText.innerText = 'ENGINE COMPILER ERROR';
-            appendSystemMessage('CRITICAL ERROR', 'WebAssembly compiler failed to load ggwave binary. Make sure Javascipt/DOM storage is allowed.', true);
+            setEngineStatus('error', 'WebAssembly compiler failed to load ggwave binary. Make sure JavaScript/DOM storage is allowed.');
+            showToast('Engine failed to load', true);
         });
     } else {
-        statusText.innerText = 'LIBRARY LOAD FAILED';
-        appendSystemMessage('CRITICAL ERROR', 'ggwave.js library not found or failed to load in WebView.', true);
+        setEngineStatus('error', 'ggwave.js library not found or failed to load in WebView.');
+        showToast('Engine failed to load', true);
     }
 
     // Bind UI Event Listeners
@@ -120,31 +130,26 @@ function convertTypedArray(src, type) {
 }
 
 // Canvas size adjusters
+function measureCanvasBox(el, fallbackH) {
+    if (!el) return { w: 300, h: fallbackH };
+    let w = el.clientWidth;
+    let h = el.clientHeight;
+    if (w < 2 || h < 2) {
+        const app = document.querySelector('.app-container');
+        w = Math.max(2, (app ? app.clientWidth : window.innerWidth) - 48);
+        h = fallbackH;
+    }
+    return { w, h };
+}
+
 function resizeCanvases() {
-    const wrapper = spectrogramCanvas.parentElement;
-    const w = wrapper.clientWidth;
-    const h = wrapper.clientHeight;
-    
-    spectrogramCanvas.width = w;
-    spectrogramCanvas.height = h;
-    oscilloscopeCanvas.width = w;
-    oscilloscopeCanvas.height = h;
-
-    if (txWaveCanvas && messageInput) {
-        txWaveCanvas.width = messageInput.parentElement.clientWidth || w;
-        txWaveCanvas.height = 48;
-    }
-
-    // Fill with black backgrounds
-    spectrogramCtx.fillStyle = '#06070a';
-    spectrogramCtx.fillRect(0, 0, w, h);
-    oscilloscopeCtx.fillStyle = '#06070a';
-    oscilloscopeCtx.fillRect(0, 0, w, h);
-
-    if (txWaveCtx && txWaveCanvas) {
-        txWaveCtx.fillStyle = '#000';
-        txWaveCtx.fillRect(0, 0, txWaveCanvas.width, txWaveCanvas.height);
-    }
+    if (!sendVizCanvas || !sendVizCtx) return;
+    const parent = sendVizCanvas.parentElement;
+    const w = parent ? parent.clientWidth : 300;
+    const h = sendVizCanvas.clientHeight || 220;
+    sendVizCanvas.width = Math.max(2, w);
+    sendVizCanvas.height = Math.max(2, h);
+    sendVizCtx.clearRect(0, 0, sendVizCanvas.width, sendVizCanvas.height);
 }
 
 // Set up UI inputs, slider changes, sidebars
@@ -161,14 +166,20 @@ function setupUIEventListeners() {
     // Settings Sidebar
     openSettingsBtn.addEventListener('click', () => {
         settingsSidebar.classList.add('open');
+        settingsSidebar.setAttribute('aria-hidden', 'false');
         sidebarOverlay.classList.add('visible');
     });
     const closeSidebar = () => {
         settingsSidebar.classList.remove('open');
+        settingsSidebar.setAttribute('aria-hidden', 'true');
         sidebarOverlay.classList.remove('visible');
     };
     closeSettingsBtn.addEventListener('click', closeSidebar);
     sidebarOverlay.addEventListener('click', closeSidebar);
+
+    if (messageInput) {
+        messageInput.addEventListener('input', updateSendEnabled);
+    }
 
     // Load secure settings on startup
     loadSecureSettings();
@@ -176,22 +187,12 @@ function setupUIEventListeners() {
 
     // Settings Inputs Binding
     protocolSelect.addEventListener('change', (e) => {
-        const val = parseInt(e.target.value);
-        // Map Inaudible (6, 7, 8) to base Ultrasound protocols (3, 4, 5)
-        const mappedVal = (val >= 6 && val <= 8) ? (val - 3) : val;
-        
-        if (protocolsMap && protocolsMap[mappedVal] !== undefined) {
-            currentProtocolId = protocolsMap[mappedVal];
+        const val = parseInt(e.target.value, 10);
+        if (protocolsMap && protocolsMap[val] !== undefined) {
+            currentProtocolId = protocolsMap[val];
         }
-        const name = protocolSelect.options[protocolSelect.selectedIndex].text;
-        activeProtocolLbl.innerText = name.split(' ')[0].toUpperCase() + '_' + name.split(' ')[1].replace(/[()]/g, '').toUpperCase();
-        
-        // Re-initialize engine context parameters if active
-        if (ggwaveInstance && audioContext) {
-            ggwaveParameters.sampleRateInp = audioContext.sampleRate;
-            ggwaveParameters.sampleRateOut = audioContext.sampleRate;
-            ggwaveInstance = ggwave.init(ggwaveParameters);
-            ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
+        if (activeProtocolLbl) {
+            activeProtocolLbl.innerText = protocolShortName();
         }
     });
 
@@ -209,15 +210,10 @@ function setupUIEventListeners() {
         soundFeedbackEnabled = e.target.checked;
     });
 
-    const chipsToggle = document.getElementById('chips-toggle');
-    const chipsContainer = document.querySelector('.chips-container');
-    if (chipsToggle && chipsContainer) {
-        chipsToggle.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                chipsContainer.classList.remove('hidden');
-            } else {
-                chipsContainer.classList.add('hidden');
-            }
+    const rxDuringTxToggle = document.getElementById('rx-during-tx-toggle');
+    if (rxDuringTxToggle) {
+        rxDuringTxToggle.addEventListener('change', (e) => {
+            rxDuringTx = e.target.checked;
         });
     }
 
@@ -225,123 +221,160 @@ function setupUIEventListeners() {
 
     clearChatBtn.addEventListener('click', () => {
         chatMessages.innerHTML = '';
-        appendSystemMessage('SYSTEM INFO', 'Chat feed cleared.');
         closeSidebar();
-    });
-
-    // Visualizer tabs switching
-    document.getElementById('tab-spectrogram').addEventListener('click', (e) => {
-        activeVizTab = 'spectrogram';
-        e.target.classList.add('active');
-        document.getElementById('tab-oscilloscope').classList.remove('active');
-        spectrogramCanvas.classList.remove('hidden');
-        oscilloscopeCanvas.classList.add('hidden');
-    });
-
-    document.getElementById('tab-oscilloscope').addEventListener('click', (e) => {
-        activeVizTab = 'oscilloscope';
-        e.target.classList.add('active');
-        document.getElementById('tab-spectrogram').classList.remove('active');
-        oscilloscopeCanvas.classList.remove('hidden');
-        spectrogramCanvas.classList.add('hidden');
     });
 }
 
-// Set up visualizer drawing loop
-function startVisualizer() {
-    if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+function sendVizBand(sampleRate, windowSize) {
+    const proto = protocolSelect ? parseInt(protocolSelect.value, 10) : 5;
+    const high = proto >= 3;
+    const f0 = high ? 14000 : 400;
+    const f1 = high ? Math.min(22000, sampleRate / 2) : 8000;
+    return {
+        start: Math.max(1, Math.floor((f0 * windowSize) / sampleRate)),
+        end: Math.max(2, Math.ceil((f1 * windowSize) / sampleRate))
+    };
+}
+
+function fillSpectrumSlice(samples, offset, windowSize, band, dest) {
+    const bins = dest.length;
+    const span = Math.max(1, band.end - band.start);
+    for (let b = 0; b < bins; b++) {
+        const k = band.start + ((b + 0.5) * span) / bins;
+        let re = 0;
+        let im = 0;
+        const step = 2;
+        for (let i = 0; i < windowSize; i += step) {
+            const idx = offset + i;
+            const s = idx >= 0 && idx < samples.length ? samples[idx] : 0;
+            const ang = (2 * Math.PI * k * i) / windowSize;
+            re += s * Math.cos(ang);
+            im -= s * Math.sin(ang);
+        }
+        dest[b] = Math.sqrt(re * re + im * im) * (step / windowSize);
     }
-    
-    const fftSize = 1024;
-    analyserNode.fftSize = fftSize;
-    const bufferLength = analyserNode.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
+}
+
+function startSendViz(floatArray) {
+    if (!sendVizCanvas || !sendVizCtx || !audioContext) return;
+    resizeCanvases();
+    sendVizCtx.clearRect(0, 0, sendVizCanvas.width, sendVizCanvas.height);
+    sendVizCanvas.classList.add('active');
+
+    const windowSize = 512;
+    const columns = 36;
+    const mags = new Float32Array(columns);
+    const smoothed = new Float32Array(columns);
+    const band = sendVizBand(audioContext.sampleRate, windowSize);
+    const txStartTime = audioContext.currentTime;
+    const bubbleHex = cssVar('--bubble-sent', '#0a84ff');
+    const rgb = hexToRgb(bubbleHex);
+
     const draw = () => {
-        animationFrameId = requestAnimationFrame(draw);
-        
-        const w = spectrogramCanvas.width;
-        const h = spectrogramCanvas.height;
-        
-        if (activeVizTab === 'spectrogram') {
-            analyserNode.getByteFrequencyData(dataArray);
-            
-            // Shift spectrogram pixels down 1px
-            spectrogramCtx.drawImage(spectrogramCanvas, 0, 0, w, h - 1, 0, 1, w, h - 1);
-            
-            // Render new frequency data line at the top (y=0)
-            const sliceWidth = w / (bufferLength * 0.7); // Crop higher humanly inaudible ranges for layout density
-            let x = 0;
-            
-            for (let i = 0; i < bufferLength; i++) {
-                const value = dataArray[i];
-                
-                // Color mapper: Neon cyan/violet transition
-                // Low frequency/amplitude -> Dark bluish
-                // High frequency/amplitude -> Radiant Magenta/Cyan
-                const r = Math.max(0, Math.min(255, value * 1.2 - 20));
-                const g = Math.max(0, Math.min(255, value * 0.5));
-                const b = Math.max(0, Math.min(255, value * 1.5 + 30));
-                
-                spectrogramCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-                spectrogramCtx.fillRect(x, 0, Math.ceil(sliceWidth), 1);
-                
-                x += sliceWidth;
-                if (x >= w) break;
+        if (!isTransmitting) {
+            stopSendViz();
+            return;
+        }
+        sendVizRaf = requestAnimationFrame(draw);
+
+        const w = sendVizCanvas.width;
+        const h = sendVizCanvas.height;
+        if (w < 2 || h < 2) {
+            resizeCanvases();
+            return;
+        }
+
+        const samplePos = Math.floor((audioContext.currentTime - txStartTime) * audioContext.sampleRate);
+        fillSpectrumSlice(floatArray, samplePos - windowSize, windowSize, band, mags);
+
+        let peak = 0.0001;
+        for (let i = 0; i < columns; i++) {
+            if (mags[i] > peak) peak = mags[i];
+        }
+
+        for (let i = 0; i < columns; i++) {
+            const t = Math.min(1, mags[i] / peak);
+            smoothed[i] = smoothed[i] * 0.65 + t * 0.35;
+        }
+        // Bloom neighboring bins so tones read as a wash, not spikes
+        const bloomed = new Float32Array(columns);
+        const pass = (src, dest) => {
+            for (let i = 0; i < columns; i++) {
+                const prev = i > 0 ? src[i - 1] : src[i];
+                const next = i < columns - 1 ? src[i + 1] : src[i];
+                dest[i] = prev * 0.25 + src[i] * 0.5 + next * 0.25;
             }
-        } else {
-            analyserNode.getByteTimeDomainData(dataArray);
-            
-            oscilloscopeCtx.fillStyle = '#06070a';
-            oscilloscopeCtx.fillRect(0, 0, w, h);
-            
-            oscilloscopeCtx.lineWidth = 2;
-            oscilloscopeCtx.strokeStyle = '#a8a8af';
-            oscilloscopeCtx.shadowBlur = 4;
-            oscilloscopeCtx.shadowColor = '#a8a8af';
-            
-            oscilloscopeCtx.beginPath();
-            const sliceWidth = w / bufferLength;
-            let x = 0;
-            
-            for (let i = 0; i < bufferLength; i++) {
-                const v = dataArray[i] / 128.0;
-                const y = (v * h) / 2;
-                
-                if (i === 0) {
-                    oscilloscopeCtx.moveTo(x, y);
-                } else {
-                    oscilloscopeCtx.lineTo(x, y);
-                }
-                
-                x += sliceWidth;
-            }
-            
-            oscilloscopeCtx.lineTo(w, h / 2);
-            oscilloscopeCtx.stroke();
-            oscilloscopeCtx.shadowBlur = 0; // reset shadow
+        };
+        pass(smoothed, bloomed);
+        pass(bloomed, smoothed);
+        pass(smoothed, bloomed);
+
+        sendVizCtx.clearRect(0, 0, w, h);
+        const slice = w / columns;
+        for (let i = 0; i < columns; i++) {
+            const t = bloomed[i];
+            if (t < 0.08) continue;
+            const barH = t * h * 0.9;
+            const x = Math.floor(i * slice) - 2;
+            const gradient = sendVizCtx.createLinearGradient(0, h, 0, h - barH);
+            gradient.addColorStop(0, `rgba(${rgb}, ${0.04 + t * 0.14})`);
+            gradient.addColorStop(1, `rgba(${rgb}, 0)`);
+            sendVizCtx.fillStyle = gradient;
+            sendVizCtx.fillRect(x, h - barH, Math.ceil(slice) + 5, barH);
         }
     };
-    
+
     draw();
 }
 
+function stopSendViz() {
+    if (sendVizRaf) {
+        cancelAnimationFrame(sendVizRaf);
+        sendVizRaf = null;
+    }
+    if (sendVizCanvas) {
+        sendVizCanvas.classList.remove('active');
+    }
+}
+
 // Initialize audio session elements
+function applyGgwaveAudioParams(params) {
+    params.sampleRateInp = audioContext.sampleRate;
+    params.sampleRateOut = audioContext.sampleRate;
+    const formats = ggwave.SampleFormat || {};
+    const f32 = formats.GGWAVE_SAMPLE_FORMAT_F32;
+    if (f32 !== undefined) {
+        params.sampleFormatInp = f32;
+        params.sampleFormatOut = f32;
+    }
+}
+
+function enableAllRxProtocols(instance) {
+    if (!ggwave || instance == null) return;
+    const toggle = ggwave.rxToggleProtocol || ggwave.toggleRxProtocol;
+    if (typeof toggle !== 'function' || !protocolsMap) return;
+    Object.keys(protocolsMap).forEach((key) => {
+        try {
+            toggle(instance, protocolsMap[key], true);
+        } catch (err) {}
+    });
+}
+
+function createGgwaveInstance() {
+    ggwaveParameters = ggwave.getDefaultParameters();
+    applyGgwaveAudioParams(ggwaveParameters);
+    const instance = ggwave.init(ggwaveParameters);
+    enableAllRxProtocols(instance);
+    return instance;
+}
+
 function initAudio() {
+    if (!ggwave) return;
     if (!audioContext) {
         window.AudioContext = window.AudioContext || window.webkitAudioContext;
-        // Default system sample rate, ideally 48000 Hz for ggwave DSP accuracy
         audioContext = new AudioContext({ sampleRate: 48000 });
-        
-        // Setup ggwave parameters
-        ggwaveParameters = ggwave.getDefaultParameters();
-        ggwaveParameters.sampleRateInp = audioContext.sampleRate;
-        ggwaveParameters.sampleRateOut = audioContext.sampleRate;
-        
-        // Initialize ggwave DSP tracker instances
-        ggwaveInstance = ggwave.init(ggwaveParameters);
-        ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
+        ggwaveInstance = createGgwaveInstance();
+        ggwaveInstanceShifted = createGgwaveInstance();
         console.log(`Audio Context initialized. Sample Rate: ${audioContext.sampleRate} Hz`);
     }
 }
@@ -357,8 +390,205 @@ function toggleAudioCapture() {
     }
 }
 
+function isMicPermissionError(err) {
+    return !!(err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'));
+}
+
+async function queryMicPermission() {
+    try {
+        if (navigator.permissions && navigator.permissions.query) {
+            const status = await navigator.permissions.query({ name: 'microphone' });
+            return status.state;
+        }
+    } catch (err) {
+        // Safari / some WebViews don't implement microphone permission queries
+    }
+    return micAccessGranted ? 'granted' : 'unknown';
+}
+
+function requestMicrophone(constraints) {
+    return navigator.mediaDevices.getUserMedia(constraints);
+}
+
+function dispatchDecodedPayload(bytes) {
+    try {
+        let rawText = '';
+        if (typeof bytes === 'string') {
+            rawText = bytes;
+        } else if (bytes && bytes.length > 0) {
+            const copy = new Uint8Array(bytes.length);
+            for (let i = 0; i < bytes.length; i++) {
+                copy[i] = bytes[i] & 0xff;
+            }
+            rawText = new TextDecoder('utf-8').decode(copy);
+        }
+        if (!rawText) return;
+        rxDebug.lastPayload = rawText;
+        updateRxDebugUI();
+        console.log('Successfully decoded raw sonic payload:', rawText);
+        parseReceivedPacket(rawText).then((parsed) => {
+            appendMessage(parsed.sender, parsed.message, 'received', parsed.encrypted);
+            playReceivedChime();
+        }).catch((parseErr) => {
+            console.error('Parsing received packet failed:', parseErr);
+        });
+    } catch (decodeErr) {
+        console.error('Decoding text payload failed:', decodeErr);
+    }
+}
+
+function updateRxDebugUI() {
+    const levelVal = document.getElementById('rx-debug-level-val');
+    const levelBar = document.getElementById('rx-debug-level-bar');
+    const captureEl = document.getElementById('rx-debug-capture');
+    const hitsEl = document.getElementById('rx-debug-hits');
+    const payloadEl = document.getElementById('rx-debug-payload');
+    const pct = Math.min(100, Math.round(rxDebug.rms * 400));
+    if (levelVal) levelVal.textContent = pct + '%';
+    if (levelBar) levelBar.style.width = pct + '%';
+    if (captureEl) {
+        if (!isCapturing) {
+            captureEl.textContent = 'Idle';
+        } else {
+            const rate = audioContext ? Math.round(audioContext.sampleRate) : 0;
+            captureEl.textContent = rxDebug.buffersPerSec + '/s · ' + rxDebug.backend + ' · ' + rate + ' Hz';
+        }
+    }
+    if (hitsEl) hitsEl.textContent = String(rxDebug.hits);
+    if (payloadEl) payloadEl.textContent = rxDebug.lastPayload;
+}
+
+function startRxDebugTimer() {
+    if (rxDebugTimer) clearInterval(rxDebugTimer);
+    rxDebug.windowBuffers = 0;
+    rxDebugTimer = setInterval(() => {
+        rxDebug.buffersPerSec = rxDebug.windowBuffers;
+        rxDebug.windowBuffers = 0;
+        updateRxDebugUI();
+    }, 1000);
+    updateRxDebugUI();
+}
+
+function stopRxDebugTimer() {
+    if (rxDebugTimer) {
+        clearInterval(rxDebugTimer);
+        rxDebugTimer = null;
+    }
+    rxDebug.backend = 'idle';
+    rxDebug.buffersPerSec = 0;
+    rxDebug.rms = 0;
+    updateRxDebugUI();
+}
+
+function feedCaptureSamples(input) {
+    if (!input || !input.length) return;
+
+    const samples = new Float32Array(input.length);
+    let sum = 0;
+    const gain = rxGain;
+    for (let i = 0; i < input.length; i++) {
+        const v = input[i] * gain;
+        samples[i] = v;
+        sum += v * v;
+    }
+    rxDebug.rms = Math.sqrt(sum / input.length);
+    rxDebug.buffers += 1;
+    rxDebug.windowBuffers += 1;
+
+    const skipDecode = isTransmitting && !rxDuringTx;
+    if (skipDecode || !ggwave || !ggwaveInstance) {
+        updateRxDebugUI();
+        return;
+    }
+
+    const decodedBytes = ggwave.decode(
+        ggwaveInstance,
+        convertTypedArray(samples, Int8Array)
+    );
+    if (decodedBytes && decodedBytes.length > 0) {
+        rxDebug.hits += 1;
+        dispatchDecodedPayload(decodedBytes);
+    }
+    updateRxDebugUI();
+}
+
+function keepCaptureNodeAlive(node) {
+    recorderDummyDest = audioContext.createMediaStreamDestination();
+    node.connect(recorderDummyDest);
+    // A fully muted node can be skipped by the audio graph. A tiny tap
+    // keeps ScriptProcessor/AudioWorklet running without speaker echo.
+    recorderSilentGain = audioContext.createGain();
+    recorderSilentGain.gain.value = 0.001;
+    node.connect(recorderSilentGain);
+    recorderSilentGain.connect(audioContext.destination);
+}
+
+async function startCaptureProcessor(sourceNode) {
+    if (!audioContext.audioWorklet) {
+        throw new Error('AudioWorklet is not available');
+    }
+    const workletSource = `
+        class CaptureProcessor extends AudioWorkletProcessor {
+            constructor() {
+                super();
+                this._buf = new Float32Array(1024);
+                this._off = 0;
+            }
+            process(inputs) {
+                const channel = (inputs[0] && inputs[0][0]) || null;
+                const n = channel ? channel.length : 128;
+                for (let i = 0; i < n; i++) {
+                    this._buf[this._off++] = channel ? channel[i] : 0;
+                    if (this._off >= this._buf.length) {
+                        this.port.postMessage(this._buf.slice());
+                        this._off = 0;
+                    }
+                }
+                return true;
+            }
+        }
+        registerProcessor('wavest-capture', CaptureProcessor);
+    `;
+    if (!captureWorkletLoaded) {
+        const blob = new Blob([workletSource], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        try {
+            await audioContext.audioWorklet.addModule(url);
+            captureWorkletLoaded = true;
+        } finally {
+            URL.revokeObjectURL(url);
+        }
+    }
+    captureWorkletNode = new AudioWorkletNode(audioContext, 'wavest-capture', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1]
+    });
+    captureWorkletNode.port.onmessage = (event) => {
+        feedCaptureSamples(event.data);
+    };
+    sourceNode.connect(captureWorkletNode);
+    keepCaptureNodeAlive(captureWorkletNode);
+    rxDebug.backend = 'AudioWorklet';
+}
+
+function startScriptProcessorCapture(sourceNode) {
+    const bufferSize = 1024;
+    if (audioContext.createScriptProcessor) {
+        recorderNode = audioContext.createScriptProcessor(bufferSize, 1, 1);
+    } else {
+        recorderNode = audioContext.createJavaScriptNode(bufferSize, 1, 1);
+    }
+    recorderNode.onaudioprocess = (e) => {
+        feedCaptureSamples(e.inputBuffer.getChannelData(0));
+    };
+    sourceNode.connect(recorderNode);
+    keepCaptureNodeAlive(recorderNode);
+    rxDebug.backend = 'ScriptProcessor';
+}
+
 // Start microphone pipeline
-function startAudioCapture() {
+async function startAudioCapture() {
     if (!audioContext || !ggwave) return;
 
     if (audioContext.state === 'suspended') {
@@ -367,118 +597,107 @@ function startAudioCapture() {
 
     const constraints = {
         audio: {
+            channelCount: 1,
             echoCancellation: false,
             autoGainControl: false,
-            noiseSuppression: false
+            noiseSuppression: false,
+            voiceIsolation: false,
+            googEchoCancellation: false,
+            googAutoGainControl: false,
+            googNoiseSuppression: false,
+            googHighpassFilter: false
         }
     };
 
-    navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+    const permissionState = await queryMicPermission();
+
+    const onStream = (stream) => {
+        micAccessGranted = true;
+        localStorage.setItem('wavest_mic_granted', '1');
         microphoneStream = stream;
         mediaStreamNode = audioContext.createMediaStreamSource(stream);
         
-        // Setup WebAudio analyzer
         analyserNode = audioContext.createAnalyser();
         mediaStreamNode.connect(analyserNode);
-        
-        // Setup javascript script processor for audio buffer slicing
-        const bufferSize = 1024;
-        const numberOfInputChannels = 1;
-        const numberOfOutputChannels = 1;
-        
-        if (audioContext.createScriptProcessor) {
-            recorderNode = audioContext.createScriptProcessor(
-                bufferSize,
-                numberOfInputChannels,
-                numberOfOutputChannels
-            );
-        } else {
-            recorderNode = audioContext.createJavaScriptNode(
-                bufferSize,
-                numberOfInputChannels,
-                numberOfOutputChannels
-            );
+
+        // Fresh decoder so leftover TX state cannot block RX
+        try {
+            ggwaveInstance = createGgwaveInstance();
+        } catch (err) {
+            console.error('Failed to recreate ggwave RX instance:', err);
         }
-        
-        // Helper to parse and format received packets
-        const handleDecodedBytes = async (bytes) => {
-            try {
-                const rawText = new TextDecoder('utf-8').decode(bytes);
-                console.log('Successfully decoded raw sonic payload:', rawText);
-                const parsed = await parseReceivedPacket(rawText);
-                appendMessage(parsed.sender, parsed.message, 'received', parsed.encrypted);
-                playReceivedChime();
-                return true;
-            } catch (decodeErr) {
-                console.error('Decoding text payload failed:', decodeErr);
-                return false;
-            }
+
+        const onGraphReady = () => {
+            isCapturing = true;
+            captureToggleBtn.classList.add('active');
+            captureToggleBtn.setAttribute('aria-pressed', 'true');
+            captureToggleBtn.setAttribute('aria-label', 'Stop listening');
+            if (statusIndicator) statusIndicator.classList.add('listening');
+            rxStateIcon.innerText = '🟢';
+            rxStateText.innerText = 'Listening for incoming audio data...';
+            updateListenState('Listening');
+            startRxDebugTimer();
         };
 
-        // Script processing tick (decoding mic data)
-        let isProcessingAudio = false;
-        recorderNode.onaudioprocess = async (e) => {
-            if (isTransmitting || isProcessingAudio) return;
+        try {
+            startScriptProcessorCapture(mediaStreamNode);
+            onGraphReady();
+        } catch (err) {
+            console.error('ScriptProcessor capture failed, trying AudioWorklet:', err);
+            startCaptureProcessor(mediaStreamNode).then(onGraphReady).catch((workletErr) => {
+                console.error('Audio capture processor failed:', workletErr);
+                rxStateText.innerText = 'Could not start audio capture.';
+            });
+        }
+    };
 
-            const inputBuffer = e.inputBuffer;
-            const channelData = inputBuffer.getChannelData(0);
-            const channelDataCopy = new Float32Array(channelData);
-            
-            isProcessingAudio = true;
+    const onMicError = async (err) => {
+        const alreadyAllowed = permissionState === 'granted' || micAccessGranted;
+        if (alreadyAllowed) {
             try {
-                if (rxGain !== 1.0) {
-                    for (let i = 0; i < channelDataCopy.length; i++) {
-                        channelDataCopy[i] *= rxGain;
-                    }
-                }
-                
-                // 1. Try decoding standard range
-                const samplesInt8 = convertTypedArray(channelDataCopy, Int8Array);
-                const decodedBytes = ggwave.decode(ggwaveInstance, samplesInt8);
-                
-                if (decodedBytes && decodedBytes.length > 0) {
-                    await handleDecodedBytes(decodedBytes);
-                } else {
-                    // 2. Try decoding shifted (inaudible) range
-                    const shiftFactor = 1.0867;
-                    const resampled = resampleBuffer(channelDataCopy, shiftFactor);
-                    const resampledInt8 = convertTypedArray(resampled, Int8Array);
-                    const decodedBytesShifted = ggwave.decode(ggwaveInstanceShifted, resampledInt8);
-                    
-                    if (decodedBytesShifted && decodedBytesShifted.length > 0) {
-                        await handleDecodedBytes(decodedBytesShifted);
-                    }
-                }
-            } finally {
-                isProcessingAudio = false;
+                const stream = await requestMicrophone(constraints);
+                onStream(stream);
+                return;
+            } catch (retryErr) {
+                console.error('Microphone capture retry failed:', retryErr);
+                rxStateIcon.innerText = '❌';
+                rxStateText.innerText = 'Microphone is busy. Try again.';
+                return;
             }
-        };
+        }
 
-        // Bind routing paths
-        mediaStreamNode.connect(recorderNode);
-        recorderNode.connect(audioContext.destination);
-
-        isCapturing = true;
-        captureToggleBtn.innerText = 'Stop Capture';
-        captureToggleBtn.classList.add('active');
-        rxStateIcon.innerText = '🟢';
-        rxStateText.innerText = 'Listening for incoming audio data...';
-        
-        // Launch visualizer thread
-        startVisualizer();
-    }).catch((err) => {
         console.error('Microphone capture stream failed:', err);
         rxStateIcon.innerText = '❌';
-        rxStateText.innerText = 'Permission denied. Mic is unavailable.';
-        appendSystemMessage('PERMISSIONS ERROR', 'Microphone access is required to listen for incoming signals. Grant access inside Android prompts.', true);
-    });
+        if (isMicPermissionError(err)) {
+            rxStateText.innerText = 'Permission denied. Mic is unavailable.';
+            showToast('Microphone access is required to listen.', true);
+        } else {
+            rxStateText.innerText = 'Could not start the microphone.';
+        }
+    };
+
+    requestMicrophone(constraints).then(onStream).catch(onMicError);
 }
 
 // Stop microphone capture
 function stopAudioCapture() {
+    if (captureWorkletNode) {
+        try { captureWorkletNode.port.onmessage = null; } catch (err) {}
+        captureWorkletNode.disconnect();
+        captureWorkletNode = null;
+    }
     if (recorderNode) {
+        recorderNode.onaudioprocess = null;
         recorderNode.disconnect();
         recorderNode = null;
+    }
+    if (recorderSilentGain) {
+        recorderSilentGain.disconnect();
+        recorderSilentGain = null;
+    }
+    if (recorderDummyDest) {
+        recorderDummyDest.disconnect();
+        recorderDummyDest = null;
     }
     if (mediaStreamNode) {
         mediaStreamNode.disconnect();
@@ -494,10 +713,14 @@ function stopAudioCapture() {
     }
 
     isCapturing = false;
-    captureToggleBtn.innerText = 'Start Capture';
     captureToggleBtn.classList.remove('active');
+    captureToggleBtn.setAttribute('aria-pressed', 'false');
+    captureToggleBtn.setAttribute('aria-label', 'Start listening');
+    if (statusIndicator) statusIndicator.classList.remove('listening');
     rxStateIcon.innerText = '🎤';
-    rxStateText.innerText = 'Audio capture paused. Press start to listen...';
+    rxStateText.innerText = 'Audio capture paused. Tap the mic to listen.';
+    updateListenState(engineStatusLabel && engineStatusLabel.classList.contains('ready') ? 'Ready' : 'Paused');
+    stopRxDebugTimer();
     
     // Clear visualization traces
     resizeCanvases();
@@ -574,9 +797,7 @@ async function transmitMessage() {
     playTransmissionFeedback(() => {
         try {
             // Encode payload to waveform floats using the selected protocol ID
-            const val = parseInt(protocolSelect.value);
-            const isInaudible = (val >= 6 && val <= 8);
-            const activeProto = currentProtocolId || (protocolsMap ? protocolsMap[1] : null);
+            const activeProto = getActiveProtocol();
             
             const waveformBuffer = ggwave.encode(
                 ggwaveInstance,
@@ -590,7 +811,7 @@ async function transmitMessage() {
                 const floatArray = convertTypedArray(waveformBuffer, Float32Array);
                 
                 // If protocol is inaudible, shift sample rate up by 1.0867
-                const playSampleRate = isInaudible ? Math.round(audioContext.sampleRate * 1.0867) : audioContext.sampleRate;
+                const playSampleRate = audioContext.sampleRate;
                 
                 // Create buffer source
                 const playBuffer = audioContext.createBuffer(1, floatArray.length, playSampleRate);
@@ -603,7 +824,8 @@ async function transmitMessage() {
                 // On complete callback
                 bufferSource.onended = () => {
                     isTransmitting = false;
-                    sendBtn.disabled = false;
+                    stopSendViz();
+                    updateSendEnabled();
                     console.log('Transmission audio output finished.');
                     
                     // Restore microphone listening state
@@ -616,67 +838,17 @@ async function transmitMessage() {
                 const isEncrypted = !!myPasskey;
                 appendMessage(myCallsign, text, 'sent', isEncrypted);
                 
-                // Show transmit visualizer wrapper and draw real-time scrolling wave
-                if (txWaveWrapper && txWaveCanvas && txWaveCtx) {
-                    txWaveWrapper.classList.remove('hidden');
-                    txWaveCanvas.width = messageInput.parentElement.clientWidth;
-                    const txStartTime = audioContext.currentTime;
-                    
-                    const drawTxWave = () => {
-                        if (!isTransmitting) {
-                            txWaveWrapper.classList.add('hidden');
-                            return;
-                        }
-                        requestAnimationFrame(drawTxWave);
-                        
-                        const w = txWaveCanvas.width;
-                        const h = txWaveCanvas.height;
-                        txWaveCtx.fillStyle = '#000';
-                        txWaveCtx.fillRect(0, 0, w, h);
-                        
-                        const elapsed = audioContext.currentTime - txStartTime;
-                        const samplePos = Math.floor(elapsed * audioContext.sampleRate);
-                        
-                        const windowSize = 800; // Display window of 800 audio samples
-                        const startIdx = Math.max(0, samplePos - windowSize / 2);
-                        
-                        txWaveCtx.lineWidth = 2.5;
-                        txWaveCtx.strokeStyle = '#5a4d6c';
-                        txWaveCtx.shadowBlur = 6;
-                        txWaveCtx.shadowColor = '#5a4d6c';
-                        txWaveCtx.beginPath();
-                        
-                        const sliceWidth = w / windowSize;
-                        let x = 0;
-                        
-                        for (let i = 0; i < windowSize; i++) {
-                            const idx = startIdx + i;
-                            const val = idx < floatArray.length ? floatArray[idx] : 0;
-                            const y = (h / 2) + (val * (h / 2.2));
-                            
-                            if (i === 0) {
-                                txWaveCtx.moveTo(x, y);
-                            } else {
-                                txWaveCtx.lineTo(x, y);
-                            }
-                            x += sliceWidth;
-                        }
-                        txWaveCtx.stroke();
-                        txWaveCtx.shadowBlur = 0;
-                    };
-                    drawTxWave();
-                }
-                
-                // Play wave buffer
+                startSendViz(floatArray);
                 bufferSource.start(0);
             } else {
                 throw new Error('ggwave.encode returned an empty buffer.');
             }
         } catch (encodeErr) {
             console.error('Error during message transmission modulation:', encodeErr);
-            appendSystemMessage('TRANSMIT ERROR', 'Data modulation failed. Try reducing message length.', true);
+            showToast('Couldn’t send. Try a shorter message.', true);
             isTransmitting = false;
-            sendBtn.disabled = false;
+            stopSendViz();
+            updateSendEnabled();
         }
     });
 }
@@ -688,13 +860,12 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'msg-content';
-    
-    // Callsign name header
-    if (sender) {
+
+    if (sender && direction === 'received') {
         const senderLabel = document.createElement('div');
         senderLabel.className = 'msg-sender';
         senderLabel.innerText = sender;
-        contentDiv.appendChild(senderLabel);
+        messageDiv.appendChild(senderLabel);
     }
     
     const textSpan = document.createElement('span');
@@ -704,9 +875,7 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     // Encryption Lock indicator
     if (isEncrypted) {
         const lockIcon = document.createElement('span');
-        lockIcon.style.fontSize = '10px';
-        lockIcon.style.opacity = '0.7';
-        lockIcon.style.marginLeft = '6px';
+        lockIcon.className = 'msg-lock';
         lockIcon.innerText = '🔒';
         contentDiv.appendChild(lockIcon);
     }
@@ -714,8 +883,14 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     const timeSpan = document.createElement('span');
     timeSpan.className = 'msg-time';
     const now = new Date();
-    timeSpan.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    timeSpan.innerText = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     
+    const prev = chatMessages.lastElementChild;
+    if (prev && prev.classList.contains(direction)) {
+        prev.classList.add('grouped-next');
+        messageDiv.classList.add('grouped');
+    }
+
     messageDiv.appendChild(contentDiv);
     messageDiv.appendChild(timeSpan);
     
@@ -725,39 +900,9 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// Append specialized diagnostics/system notifications
+// System notices stay out of the conversation — toast or settings only
 function appendSystemMessage(title, text, isError = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message system';
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'msg-content';
-    if (isError) {
-        contentDiv.style.borderColor = 'rgba(255, 0, 85, 0.3)';
-    }
-    
-    const titleStr = isError ? `❌ ${title}` : `⚙️ ${title}`;
-    const color = isError ? 'var(--accent-danger)' : 'var(--accent-secondary)';
-    
-    contentDiv.innerHTML = `<strong style="color: ${color}">${titleStr}</strong><p>${text}</p>`;
-    
-    const timeSpan = document.createElement('span');
-    timeSpan.className = 'msg-time';
-    timeSpan.innerText = 'SYSTEM';
-    
-    messageDiv.appendChild(contentDiv);
-    messageDiv.appendChild(timeSpan);
-    
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// Template chips quick trigger
-function useTemplate(text) {
-    messageInput.value = text;
-    messageInput.focus();
-    // Enable send button
-    sendBtn.disabled = false;
+    showToast(text || title, isError);
 }
 
 // Diagnostics Self-Test
@@ -772,7 +917,7 @@ function runDiagnosticsLoopback() {
             
             // 1. Test wave modulation
             testResult.innerText += '\n[1/3] Modulating test signal...';
-            const activeProto = currentProtocolId || (protocolsMap ? protocolsMap[1] : null);
+            const activeProto = getActiveProtocol();
             const waveformBuffer = ggwave.encode(
                 ggwaveInstance,
                 testPayload,
@@ -803,7 +948,6 @@ function runDiagnosticsLoopback() {
                 if (text === testPayload) {
                     testResult.innerText += '\n[SUCCESS] DECODE MATCHED!';
                     testResult.style.color = 'var(--accent-green)';
-                    appendSystemMessage('DIAGNOSTICS PASSED', 'Local loopback transmission validated. WebAssembly and AudioContext are 100% operational.');
                 } else {
                     throw new Error(`Decoded payload mismatch. Got: "${text}"`);
                 }
@@ -813,8 +957,7 @@ function runDiagnosticsLoopback() {
         } catch (err) {
             console.error('Diagnostics self-test failed:', err);
             testResult.innerText += `\n[FAILED] ${err.message}`;
-            testResult.style.color = 'var(--accent-danger)';
-            appendSystemMessage('DIAGNOSTICS FAILED', `Self-test failed: ${err.message}`, true);
+            testResult.style.color = 'var(--accent-red)';
         }
     }, 100);
 }
@@ -1090,4 +1233,90 @@ function bindSecureSettingsListeners() {
             console.log('DEBUG: Encryption keys programmatically set.');
         });
     }
+}
+
+function cssVar(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+}
+
+function hexToRgb(hex) {
+    const h = String(hex || '').replace('#', '').trim();
+    if (h.length !== 6) return '10,132,255';
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return '10,132,255';
+    return `${r},${g},${b}`;
+}
+
+function protocolShortName() {
+    if (!protocolSelect || protocolSelect.selectedIndex < 0) return 'Ultrasound';
+    return protocolSelect.options[protocolSelect.selectedIndex].text.split(' (')[0];
+}
+
+function getActiveProtocol() {
+    if (currentProtocolId) return currentProtocolId;
+    if (!protocolsMap) return null;
+    const val = protocolSelect ? parseInt(protocolSelect.value, 10) : 5;
+    return protocolsMap[val] || protocolsMap[5] || null;
+}
+
+function updateListenState(text) {
+    if (navListenState) navListenState.textContent = text;
+}
+
+function updateSendEnabled() {
+    if (!sendBtn) return;
+    const ready = !!ggwave && !isTransmitting;
+    const hasText = !!(messageInput && messageInput.value.trim());
+    sendBtn.disabled = !(ready && hasText);
+}
+
+function setEngineStatus(state, detail) {
+    const labels = { init: 'Initializing', ready: 'Ready', error: 'Failed' };
+    const label = labels[state] || state;
+
+    if (statusText) statusText.innerText = label;
+    if (statusIndicator) {
+        statusIndicator.classList.remove('online', 'offline', 'listening');
+        statusIndicator.classList.add(state === 'ready' ? 'online' : 'offline');
+        if (isCapturing) statusIndicator.classList.add('listening');
+    }
+    if (engineStatusLabel) {
+        engineStatusLabel.textContent = label;
+        engineStatusLabel.className = 'row-value ' + state;
+    }
+    if (engineStatusDetail && detail) {
+        engineStatusDetail.textContent = detail;
+    }
+    if (!isCapturing) {
+        updateListenState(state === 'ready' ? 'Ready' : label);
+    }
+}
+
+function showToast(text, isError = false) {
+    if (!appToast) return;
+    appToast.textContent = text;
+    appToast.classList.toggle('error', !!isError);
+    appToast.classList.add('visible');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+        appToast.classList.remove('visible');
+    }, 3200);
+}
+
+function applyTheme(theme, persist) {
+    const allowed = ['classic', 'midnight', 'indigo'];
+    const next = allowed.includes(theme) ? theme : 'midnight';
+    document.documentElement.setAttribute('data-theme', next);
+    if (persist) {
+        localStorage.setItem('wavest_theme', next);
+    }
+
+    const colors = { classic: '#f9f9f9', midnight: '#000000', indigo: '#f2f2f7' };
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', colors[next]);
+
+    requestAnimationFrame(resizeCanvases);
 }
