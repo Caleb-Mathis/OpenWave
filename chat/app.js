@@ -40,6 +40,15 @@ const rxStateIcon = document.getElementById('rx-state-icon');
 const rxStateText = document.getElementById('rx-state-text');
 const captureToggleBtn = document.getElementById('capture-toggle-btn');
 const activeProtocolLbl = document.getElementById('active-protocol-lbl');
+const protocolToggleBtn = document.getElementById('protocol-toggle-btn');
+const protocolBandGroup = document.getElementById('protocol-band');
+const protocolRateRange = document.getElementById('protocol-rate');
+const protocolRateVal = document.getElementById('protocol-rate-val');
+const chatThread = document.getElementById('chat-thread');
+
+const RATE_NAMES = ['Normal', 'Fast', 'Fastest'];
+let protocolBand = 'ultrasound';
+let protocolRate = 2;
 
 // Send spectrogram (decorative, transmit-only)
 const sendVizCanvas = document.getElementById('send-viz-canvas');
@@ -50,7 +59,6 @@ const settingsSidebar = document.getElementById('settings-sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
 const openSettingsBtn = document.getElementById('open-settings-btn');
 const closeSettingsBtn = document.getElementById('close-settings-btn');
-const protocolSelect = document.getElementById('protocol-select');
 const volumeRange = document.getElementById('volume-range');
 const volumeVal = document.getElementById('volume-val');
 const sensitivityRange = document.getElementById('sensitivity-range');
@@ -134,12 +142,34 @@ function isTextField(el) {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 }
 
+function isStandaloneDisplay() {
+    return window.navigator.standalone === true
+        || window.matchMedia('(display-mode: standalone)').matches
+        || window.matchMedia('(display-mode: fullscreen)').matches;
+}
+
+function chatDistanceFromBottom() {
+    if (!chatMessages) return 0;
+    return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
+}
+
+function pinChatToLatest() {
+    if (!chatMessages) return;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 function setupViewportLock() {
     const root = document.documentElement;
     const HINT_KEY = 'wavest_kb_inset';
     let lastInset = -1;
     let trackingUntil = 0;
     let trackRaf = 0;
+    let pinnedToLatest = true;
+
+    if (isStandaloneDisplay()) {
+        document.documentElement.classList.add('standalone');
+        document.body.classList.add('standalone');
+    }
 
     if (navigator.virtualKeyboard) {
         try {
@@ -147,6 +177,12 @@ function setupViewportLock() {
         } catch (err) {
             /* Safari may expose the object without this setter */
         }
+    }
+
+    if (chatMessages) {
+        chatMessages.addEventListener('scroll', () => {
+            pinnedToLatest = chatDistanceFromBottom() < 80;
+        }, { passive: true });
     }
 
     const measuredInset = () => {
@@ -159,6 +195,22 @@ function setupViewportLock() {
             ? navigator.virtualKeyboard.boundingRect.height
             : 0;
         return Math.max(fromViewport, fromVk);
+    };
+
+    const restorePinnedChat = (force) => {
+        if (!chatMessages) return;
+        if (force || pinnedToLatest) pinChatToLatest();
+    };
+
+    const scheduleChatRestore = () => {
+        restorePinnedChat(true);
+        requestAnimationFrame(() => {
+            restorePinnedChat(true);
+            requestAnimationFrame(() => restorePinnedChat(true));
+        });
+        [50, 120, 280, 480].forEach((ms) => {
+            setTimeout(() => restorePinnedChat(true), ms);
+        });
     };
 
     const apply = () => {
@@ -180,22 +232,17 @@ function setupViewportLock() {
             sessionStorage.setItem(HINT_KEY, String(Math.round(inset)));
         }
 
-        const wasOpen = document.body.classList.contains('keyboard-open');
-        const keyboardOpen = inset > 80;
+        const keyboardOpen = inset > 80 || (typing && document.body.classList.contains('keyboard-open'));
         document.body.classList.toggle('keyboard-open', keyboardOpen);
 
         if (Math.abs(inset - lastInset) > 0.5) {
             lastInset = inset;
             root.style.setProperty('--kb-js', `${inset}px`);
+            if (chatMessages) void chatMessages.offsetHeight;
             resizeCanvases();
         }
 
-        if (keyboardOpen && chatMessages) {
-            const slack = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
-            if (slack < 96 || !wasOpen) {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-        }
+        if (keyboardOpen) restorePinnedChat(true);
     };
 
     const track = () => {
@@ -213,6 +260,7 @@ function setupViewportLock() {
     };
 
     const prelift = () => {
+        pinnedToLatest = true;
         let inset = measuredInset();
         if (inset < 80) {
             const hinted = Number(sessionStorage.getItem(HINT_KEY) || 0);
@@ -227,6 +275,8 @@ function setupViewportLock() {
             lastInset = inset;
             root.style.setProperty('--kb-js', `${inset}px`);
             document.body.classList.add('keyboard-open');
+            if (chatMessages) void chatMessages.offsetHeight;
+            scheduleChatRestore();
         }
         startTracking(700);
     };
@@ -237,12 +287,16 @@ function setupViewportLock() {
         sessionStorage.removeItem(HINT_KEY);
         startTracking(500);
     });
-    window.addEventListener('scroll', () => window.scrollTo(0, 0), { passive: false });
+    window.addEventListener('scroll', () => {
+        window.scrollTo(0, 0);
+        if (document.body.classList.contains('keyboard-open')) restorePinnedChat(true);
+    }, { passive: false });
 
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', () => startTracking(400));
         window.visualViewport.addEventListener('scroll', () => {
             window.scrollTo(0, 0);
+            if (document.body.classList.contains('keyboard-open')) restorePinnedChat(true);
             startTracking(400);
         });
     }
@@ -316,25 +370,9 @@ function setupUIEventListeners() {
 
     // Load secure settings on startup
     loadSecureSettings();
+    loadProtocolSettings();
     bindSecureSettingsListeners();
-
-    // Settings Inputs Binding
-    protocolSelect.addEventListener('change', (e) => {
-        const val = parseInt(e.target.value, 10);
-        const mappedVal = (val >= 6 && val <= 8) ? (val - 3) : val;
-        if (protocolsMap && protocolsMap[mappedVal] !== undefined) {
-            currentProtocolId = protocolsMap[mappedVal];
-        }
-        if (activeProtocolLbl) {
-            activeProtocolLbl.innerText = protocolShortName();
-        }
-        if (ggwaveInstance && audioContext) {
-            ggwaveParameters.sampleRateInp = audioContext.sampleRate;
-            ggwaveParameters.sampleRateOut = audioContext.sampleRate;
-            ggwaveInstance = ggwave.init(ggwaveParameters);
-            ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
-        }
-    });
+    bindProtocolSettings();
 
     volumeRange.addEventListener('input', (e) => {
         txVolume = parseFloat(e.target.value) / 100;
@@ -353,14 +391,14 @@ function setupUIEventListeners() {
     loopbackTestBtn.addEventListener('click', runDiagnosticsLoopback);
 
     clearChatBtn.addEventListener('click', () => {
-        chatMessages.innerHTML = '';
+        if (chatThread) chatThread.innerHTML = '';
+        else chatMessages.innerHTML = '';
         closeSidebar();
     });
 }
 
 function sendVizBand(sampleRate, windowSize) {
-    const proto = protocolSelect ? parseInt(protocolSelect.value, 10) : 5;
-    const high = proto >= 3;
+    const high = protocolBand === 'ultrasound';
     const f0 = high ? 14000 : 400;
     const f1 = high ? Math.min(22000, sampleRate / 2) : 8000;
     return {
@@ -689,8 +727,6 @@ async function transmitMessage() {
     playTransmissionFeedback(() => {
         try {
             // Encode payload to waveform floats using the selected protocol ID
-            const val = parseInt(protocolSelect.value, 10);
-            const isInaudible = (val >= 6 && val <= 8);
             const activeProto = getActiveProtocol();
             
             const waveformBuffer = ggwave.encode(
@@ -703,9 +739,7 @@ async function transmitMessage() {
             if (waveformBuffer && waveformBuffer.length > 0) {
                 // Convert buffer representation
                 const floatArray = convertTypedArray(waveformBuffer, Float32Array);
-                
-                // If protocol is inaudible, shift sample rate up by 1.0867
-                const playSampleRate = isInaudible ? Math.round(audioContext.sampleRate * 1.0867) : audioContext.sampleRate;
+                const playSampleRate = audioContext.sampleRate;
                 
                 // Create buffer source
                 const playBuffer = audioContext.createBuffer(1, floatArray.length, playSampleRate);
@@ -779,7 +813,8 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     const now = new Date();
     timeSpan.innerText = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     
-    const prev = chatMessages.lastElementChild;
+    const list = chatThread || chatMessages;
+    const prev = list.lastElementChild;
     if (prev && prev.classList.contains(direction)) {
         prev.classList.add('grouped-next');
         messageDiv.classList.add('grouped');
@@ -788,10 +823,10 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     messageDiv.appendChild(contentDiv);
     messageDiv.appendChild(timeSpan);
     
-    chatMessages.appendChild(messageDiv);
+    list.appendChild(messageDiv);
     
     // Auto-scroll chat to bottom
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    pinChatToLatest();
 }
 
 // System notices stay out of the conversation — toast or settings only
@@ -1144,17 +1179,110 @@ function hexToRgb(hex) {
     return `${r},${g},${b}`;
 }
 
+function protocolIndex() {
+    return (protocolBand === 'ultrasound' ? 3 : 0) + protocolRate;
+}
+
 function protocolShortName() {
-    if (!protocolSelect || protocolSelect.selectedIndex < 0) return 'Ultrasound';
-    return protocolSelect.options[protocolSelect.selectedIndex].text.split(' (')[0];
+    return protocolBand === 'audible' ? 'Audible' : 'Ultrasound';
 }
 
 function getActiveProtocol() {
-    if (currentProtocolId) return currentProtocolId;
-    if (!protocolsMap) return null;
-    const val = protocolSelect ? parseInt(protocolSelect.value, 10) : 5;
-    const mappedVal = (val >= 6 && val <= 8) ? (val - 3) : val;
-    return protocolsMap[mappedVal] || protocolsMap[5] || null;
+    if (!protocolsMap) return currentProtocolId;
+    return protocolsMap[protocolIndex()] || protocolsMap[5] || currentProtocolId || null;
+}
+
+function loadProtocolSettings() {
+    const savedBand = localStorage.getItem('wavest_protocol_band');
+    const savedRate = localStorage.getItem('wavest_protocol_rate');
+    if (savedBand === 'audible' || savedBand === 'ultrasound') protocolBand = savedBand;
+    if (savedRate === '0' || savedRate === '1' || savedRate === '2') {
+        protocolRate = parseInt(savedRate, 10);
+    }
+    applyProtocol({ persist: false, reinit: false });
+}
+
+function bindPressFeedback(el) {
+    if (!el) return;
+    const press = () => el.classList.add('is-pressed');
+    const release = () => el.classList.remove('is-pressed');
+    el.addEventListener('pointerdown', press);
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+    el.addEventListener('pointerleave', release);
+}
+
+function bindProtocolSettings() {
+    if (protocolBandGroup) {
+        protocolBandGroup.querySelectorAll('[data-band]').forEach((btn) => {
+            btn.addEventListener('click', () => setProtocolBand(btn.getAttribute('data-band')));
+        });
+    }
+
+    if (protocolRateRange) {
+        protocolRateRange.addEventListener('input', (e) => {
+            const next = parseInt(e.target.value, 10);
+            if (Number.isNaN(next)) return;
+            protocolRate = Math.max(0, Math.min(2, next));
+            applyProtocol();
+        });
+    }
+
+    bindPressFeedback(openSettingsBtn);
+    bindPressFeedback(protocolToggleBtn);
+
+    if (protocolToggleBtn) {
+        protocolToggleBtn.addEventListener('click', () => {
+            setProtocolBand(protocolBand === 'ultrasound' ? 'audible' : 'ultrasound');
+        });
+    }
+}
+
+function setProtocolBand(band) {
+    if (band !== 'audible' && band !== 'ultrasound') return;
+    protocolBand = band;
+    applyProtocol();
+}
+
+function applyProtocol({ persist = true, reinit = true } = {}) {
+    currentProtocolId = getActiveProtocol();
+
+    if (protocolBandGroup) {
+        protocolBandGroup.querySelectorAll('[data-band]').forEach((btn) => {
+            const selected = btn.getAttribute('data-band') === protocolBand;
+            btn.classList.toggle('is-selected', selected);
+            btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+    }
+
+    if (protocolRateRange && String(protocolRateRange.value) !== String(protocolRate)) {
+        protocolRateRange.value = String(protocolRate);
+    }
+    if (protocolRateVal) protocolRateVal.textContent = RATE_NAMES[protocolRate] || 'Fastest';
+
+    if (activeProtocolLbl) activeProtocolLbl.innerText = protocolShortName();
+
+    if (protocolToggleBtn) {
+        const ultrasound = protocolBand === 'ultrasound';
+        protocolToggleBtn.setAttribute('aria-pressed', ultrasound ? 'true' : 'false');
+        protocolToggleBtn.setAttribute(
+            'aria-label',
+            ultrasound ? 'Switch to audible' : 'Switch to ultrasound'
+        );
+        protocolToggleBtn.title = ultrasound ? 'Ultrasound — tap for audible' : 'Audible — tap for ultrasound';
+    }
+
+    if (persist) {
+        localStorage.setItem('wavest_protocol_band', protocolBand);
+        localStorage.setItem('wavest_protocol_rate', String(protocolRate));
+    }
+
+    if (reinit && ggwaveInstance && audioContext && ggwaveParameters) {
+        ggwaveParameters.sampleRateInp = audioContext.sampleRate;
+        ggwaveParameters.sampleRateOut = audioContext.sampleRate;
+        ggwaveInstance = ggwave.init(ggwaveParameters);
+        ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
+    }
 }
 
 function updateListenState(text) {

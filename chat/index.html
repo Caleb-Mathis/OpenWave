@@ -31,7 +31,20 @@
                 </svg>
                 <span id="status-indicator" class="status-dot offline"></span>
             </div>
-            <div class="nav-spacer" aria-hidden="true"></div>
+            <button id="protocol-toggle-btn" class="icon-btn glass-btn" type="button" aria-pressed="true" aria-label="Switch to audible">
+                <svg class="protocol-icon protocol-icon-ultrasound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+                    <path d="M8.2 8.2a5.4 5.4 0 0 1 0 7.6" />
+                    <path d="M15.8 8.2a5.4 5.4 0 0 0 0 7.6" />
+                    <path d="M5.4 5.4a9.4 9.4 0 0 1 0 13.2" />
+                    <path d="M18.6 5.4a9.4 9.4 0 0 0 0 13.2" />
+                </svg>
+                <svg class="protocol-icon protocol-icon-audible" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 10v4h3.2L12 18V6L7.2 10H4z" />
+                    <path d="M15.4 9.2a4.2 4.2 0 0 1 0 5.6" />
+                    <path d="M17.8 6.8a7.6 7.6 0 0 1 0 10.4" />
+                </svg>
+            </button>
             <div class="nav-titles">
                 <h1>Wavest</h1>
                 <p class="nav-subtitle">
@@ -45,7 +58,9 @@
 
         <main class="chat-container">
             <canvas id="send-viz-canvas" class="send-viz" aria-hidden="true"></canvas>
-            <div id="chat-messages" class="chat-messages"></div>
+            <div id="chat-messages" class="chat-messages">
+                <div id="chat-thread" class="chat-thread"></div>
+            </div>
         </main>
 
         <div id="app-toast" class="app-toast" role="status" aria-live="polite"></div>
@@ -81,17 +96,20 @@
                 <div class="ios-group">
                     <p class="ios-caption">Acoustic</p>
                     <div class="ios-inset">
-                        <label class="ios-row" for="protocol-select">
+                        <div class="ios-row">
                             <span>Protocol</span>
-                            <select id="protocol-select" class="ios-select">
-                                <option value="0">Audible (Normal)</option>
-                                <option value="1">Audible (Fast)</option>
-                                <option value="2">Audible (Fastest)</option>
-                                <option value="3">Ultrasound (Normal)</option>
-                                <option value="4">Ultrasound (Fast)</option>
-                                <option value="5" selected>Ultrasound (Fastest)</option>
-                            </select>
-                        </label>
+                            <div id="protocol-band" class="segmented" role="group" aria-label="Protocol">
+                                <button type="button" class="segmented-btn" data-band="audible">Audible</button>
+                                <button type="button" class="segmented-btn is-selected" data-band="ultrasound" aria-pressed="true">Ultrasound</button>
+                            </div>
+                        </div>
+                        <div class="ios-row stack">
+                            <div class="ios-row-main">
+                                <label for="protocol-rate">Rate</label>
+                                <span class="row-value" id="protocol-rate-val">Fastest</span>
+                            </div>
+                            <input type="range" id="protocol-rate" min="0" max="2" step="1" value="2">
+                        </div>
                         <div class="ios-row stack">
                             <div class="ios-row-main">
                                 <label for="volume-range">Tx Volume</label>
@@ -114,7 +132,7 @@
                             </label>
                         </div>
                     </div>
-                    <p class="ios-footer">Audible protocols are more robust in noisy rooms. Ultrasound (18 kHz+) is silent, but can be less reliable.</p>
+                    <p class="ios-footer">Audible is louder and holds up better in noisy rooms. Ultrasound (18 kHz+) is silent, but easier to miss. Rate is how fast each message is sent. Slower is more reliable. Faster is quicker, but easier to miss.</p>
                 </div>
 
                 <div class="ios-group">

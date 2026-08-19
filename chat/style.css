@@ -128,6 +128,8 @@ html {
 :root {
     --vv-top: 0px;
     --vv-height: 100%;
+    --app-top: 0px;
+    --app-height: 100%;
     --kb-js: 0px;
     --kb-inset: var(--kb-js);
     --composer-pad-bottom: max(8px, env(safe-area-inset-bottom, 0px));
@@ -138,7 +140,7 @@ body {
     position: fixed;
     inset: 0;
     width: 100%;
-    height: 100%;
+    height: auto;
     overflow: hidden;
     overscroll-behavior: none;
 }
@@ -175,13 +177,14 @@ body {
 .app-container {
     display: flex;
     flex-direction: column;
-    position: absolute;
+    position: fixed;
     left: 50%;
     top: 0;
+    bottom: 0;
     transform: translateX(-50%);
     width: 100%;
     max-width: 430px;
-    height: 100%;
+    height: auto;
     background:
         radial-gradient(120% 70% at 50% 0%, rgba(90, 140, 255, 0.08), transparent 52%),
         var(--bg);
@@ -195,9 +198,9 @@ body {
     left: 0;
     right: 0;
     display: grid;
-    grid-template-columns: 44px 1fr 44px;
+    grid-template-columns: 47px 1fr 47px;
     grid-template-areas:
-        "settings avatar spacer"
+        "settings avatar protocol"
         ". titles .";
     align-items: center;
     column-gap: 10px;
@@ -211,10 +214,28 @@ body {
     pointer-events: none;
 }
 
+#open-settings-btn,
+#protocol-toggle-btn {
+    width: 47px;
+    height: 47px;
+}
+
 #open-settings-btn {
     grid-area: settings;
-    width: 44px;
-    height: 44px;
+}
+
+#protocol-toggle-btn {
+    grid-area: protocol;
+}
+
+#protocol-toggle-btn .protocol-icon {
+    width: 23px;
+    height: 23px;
+}
+
+#protocol-toggle-btn[aria-pressed="true"] .protocol-icon-audible,
+#protocol-toggle-btn:not([aria-pressed="true"]) .protocol-icon-ultrasound {
+    display: none;
 }
 
 .nav-bar > * {
@@ -304,6 +325,7 @@ body {
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    transition: transform 0.14s ease, opacity 0.14s ease;
 }
 
 .glass-btn {
@@ -316,19 +338,14 @@ body {
 }
 
 .icon-btn svg {
-    width: 22px;
-    height: 22px;
+    width: 23px;
+    height: 23px;
 }
 
-.icon-btn:active {
+.icon-btn:active,
+.icon-btn.is-pressed {
     transform: scale(0.94);
     opacity: 0.86;
-}
-
-.nav-spacer {
-    grid-area: spacer;
-    width: 44px;
-    height: 44px;
 }
 
 /* --- Chat --- */
@@ -395,10 +412,18 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
     padding: calc(env(safe-area-inset-top, 20px) + 136px) 14px calc(var(--composer-pad-bottom) + 56px + var(--kb-inset, 0px));
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    overflow-anchor: none;
+}
+
+.chat-thread {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
 }
 
 .message {
@@ -746,7 +771,9 @@ body {
 .ios-row.stack {
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
+    gap: 12px;
+    padding-top: 14px;
+    padding-bottom: 18px;
 }
 
 .ios-row.stack > span,
@@ -795,6 +822,37 @@ body {
 .ios-select option {
     color: #000;
     background: #fff;
+}
+
+.segmented {
+    display: inline-flex;
+    flex-shrink: 0;
+    background: var(--fill);
+    border-radius: 9px;
+    padding: 2px;
+    gap: 0;
+}
+
+.segmented-btn {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font: 600 13px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: -0.08px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.segmented-btn.is-selected {
+    background: var(--bg-elevated);
+    box-shadow: 0 0.5px 2px rgba(0, 0, 0, 0.18);
+}
+
+.segmented-btn:active:not(.is-selected) {
+    opacity: 0.7;
 }
 
 .row-value {
@@ -963,7 +1021,8 @@ body {
 input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
-    width: 100%;
+    width: calc(100% - 16px);
+    margin: 6px 8px 4px;
     height: 4px;
     background: var(--fill-strong);
     border-radius: 99px;
@@ -974,6 +1033,16 @@ input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 28px;
     height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0.5px 4px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+    border: none;
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 0.5px 4px rgba(0, 0, 0, 0.28);
@@ -1069,4 +1138,14 @@ input[type="range"]::-webkit-slider-thumb {
         border-left: 0.5px solid var(--separator-hairline);
         border-right: 0.5px solid var(--separator-hairline);
     }
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen) {
+    :root {
+        --composer-pad-bottom: max(34px, env(safe-area-inset-bottom, 0px));
+    }
+}
+
+html.standalone {
+    --composer-pad-bottom: max(34px, env(safe-area-inset-bottom, 0px));
 }
