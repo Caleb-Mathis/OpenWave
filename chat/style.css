@@ -24,8 +24,8 @@ html {
     --bubble-sent-text: #ffffff;
     --bubble-received: #3a3a3c;
     --bubble-received-text: #ffffff;
-    --bubble-sent-encrypted: #bf5af2;
-    --bubble-received-encrypted: #5b4d78;
+    --bubble-sent-encrypted: #9d3bff;
+    --bubble-received-encrypted: #3a3a3c;
     --fill: rgba(120, 120, 128, 0.28);
     --fill-strong: rgba(120, 120, 128, 0.4);
     --accent: #0a84ff;
@@ -703,6 +703,11 @@ html.layout-debug-on .composer::after {
     box-shadow: 0 2px 8px rgba(10, 132, 255, 0.35);
 }
 
+.send-btn.encrypted {
+    background: var(--bubble-sent-encrypted);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--bubble-sent-encrypted) 45%, transparent);
+}
+
 .send-btn svg {
     width: 20px;
     height: 20px;
@@ -918,9 +923,9 @@ button.ios-row:last-child {
 }
 
 .settings-link-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 7px;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
     color: #fff;
     display: flex;
     align-items: center;
@@ -929,8 +934,8 @@ button.ios-row:last-child {
 }
 
 .settings-link-icon svg {
-    width: 17px;
-    height: 17px;
+    width: 18px;
+    height: 18px;
 }
 
 .settings-chevron {

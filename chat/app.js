@@ -511,7 +511,7 @@ function fillSpectrumSlice(samples, offset, windowSize, band, dest) {
     }
 }
 
-function startSendViz(floatArray) {
+function startSendViz(floatArray, encrypted = false) {
     if (!sendVizCanvas || !sendVizCtx || !audioContext || !floatArray || !floatArray.length) return;
     resizeCanvases();
     sendVizCtx.clearRect(0, 0, sendVizCanvas.width, sendVizCanvas.height);
@@ -523,7 +523,10 @@ function startSendViz(floatArray) {
     const smoothed = new Float32Array(columns);
     const band = sendVizBand(audioContext.sampleRate, windowSize);
     const txStartTime = audioContext.currentTime;
-    const rgb = hexToRgb(cssVar('--bubble-sent', '#0a84ff'));
+    const rgb = hexToRgb(cssVar(
+        encrypted ? '--bubble-sent-encrypted' : '--bubble-sent',
+        encrypted ? '#9d3bff' : '#0a84ff'
+    ));
 
     const draw = () => {
         if (!isTransmitting) {
@@ -850,7 +853,7 @@ async function transmitMessage() {
                 const isEncrypted = encryptionEnabled && !!myPasskey;
                 appendMessage(myCallsign, text, 'sent', isEncrypted);
                 
-                startSendViz(floatArray);
+                startSendViz(floatArray, isEncrypted);
                 bufferSource.start(0);
             } else {
                 throw new Error('ggwave.encode returned an empty buffer.');
@@ -1183,6 +1186,7 @@ function loadSecureSettings() {
     if (passkeyInput) passkeyInput.value = myPasskey;
     if (encryptionToggle) encryptionToggle.checked = encryptionEnabled;
     syncPasskeyEnabled();
+    syncSendBtnTheme();
     renderContactList();
 }
 
@@ -1210,6 +1214,7 @@ function bindSecureSettingsListeners() {
         const updatePasskey = (e) => {
             myPasskey = e.target.value || '';
             localStorage.setItem('wavest_passkey', myPasskey);
+            syncSendBtnTheme();
         };
         passkeyInput.addEventListener('input', updatePasskey);
         passkeyInput.addEventListener('change', updatePasskey);
@@ -1221,6 +1226,7 @@ function bindSecureSettingsListeners() {
             encryptionEnabled = e.target.checked;
             localStorage.setItem('wavest_encryption_on', encryptionEnabled ? '1' : '0');
             syncPasskeyEnabled();
+            syncSendBtnTheme();
         });
     }
 
@@ -1255,6 +1261,7 @@ function bindSecureSettingsListeners() {
             if (passInput) passInput.value = myPasskey;
             if (encToggle) encToggle.checked = true;
             syncPasskeyEnabled();
+            syncSendBtnTheme();
             renderContactList();
             console.log('DEBUG: Encryption keys programmatically set.');
         });
@@ -1600,11 +1607,21 @@ function updateListenState(text) {
     setNavSubtitle({ animate: true });
 }
 
+function isSendingEncrypted() {
+    return encryptionEnabled && !!myPasskey;
+}
+
+function syncSendBtnTheme() {
+    if (!sendBtn) return;
+    sendBtn.classList.toggle('encrypted', isSendingEncrypted());
+}
+
 function updateSendEnabled() {
     if (!sendBtn) return;
     const ready = !!ggwave && !isTransmitting;
     const hasText = !!(messageInput && messageInput.value.trim());
     sendBtn.disabled = !(ready && hasText);
+    syncSendBtnTheme();
 }
 
 function setEngineStatus(state, detail) {
