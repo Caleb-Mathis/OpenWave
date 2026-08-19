@@ -88,101 +88,218 @@
         </footer>
 
         <section id="settings-sidebar" class="settings-sheet" aria-hidden="true">
-            <div class="sheet-header">
-                <h2>Settings</h2>
-                <button id="close-settings-btn" class="text-btn" type="button">Done</button>
-            </div>
-            <div class="sidebar-content">
-                <div class="ios-group">
-                    <p class="ios-caption">Acoustic</p>
-                    <div class="ios-inset">
-                        <div class="ios-row">
-                            <label for="ultrasound-toggle">Ultrasound</label>
-                            <label class="ios-switch">
-                                <input type="checkbox" id="ultrasound-toggle" checked>
-                                <span class="ios-switch-track"></span>
-                            </label>
-                        </div>
-                        <div class="ios-row stack">
-                            <div class="ios-row-main">
-                                <label for="protocol-rate">Rate</label>
-                                <span class="row-value" id="protocol-rate-val">Fastest</span>
+            <div class="settings-pages">
+                <div class="settings-page is-active" data-page="root">
+                    <div class="sheet-header">
+                        <h2>Settings</h2>
+                        <button id="close-settings-btn" class="glass-btn glass-pill" type="button">Done</button>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="ios-group">
+                            <div class="ios-inset">
+                                <button type="button" class="ios-row settings-link" data-push="acoustic">
+                                    <span class="settings-link-main">
+                                        <span class="settings-link-icon" style="background:#0a84ff">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0" /></svg>
+                                        </span>
+                                        Acoustic
+                                    </span>
+                                    <span class="settings-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
+                                    </span>
+                                </button>
+                                <button type="button" class="ios-row settings-link" data-push="identity">
+                                    <span class="settings-link-main">
+                                        <span class="settings-link-icon" style="background:#bf5af2">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                                        </span>
+                                        Callsigns &amp; Encryption
+                                    </span>
+                                    <span class="settings-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
+                                    </span>
+                                </button>
+                                <button type="button" class="ios-row settings-link" data-push="system">
+                                    <span class="settings-link-main">
+                                        <span class="settings-link-icon" style="background:#636366">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+                                        </span>
+                                        System
+                                    </span>
+                                    <span class="settings-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
+                                    </span>
+                                </button>
                             </div>
-                            <input type="range" id="protocol-rate" min="0" max="2" step="1" value="2">
                         </div>
-                        <div class="ios-row stack">
-                            <div class="ios-row-main">
-                                <label for="volume-range">Tx Volume</label>
-                                <span class="row-value"><span id="volume-val">60</span>%</span>
+                        <div class="settings-attribution">
+                            <p>OpenWave v1.0 by Caleb Mathis</p>
+                            <p>Built on Wavest by Benn Jordan &amp; GGWave by Georgi Gerganov.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-page" data-page="acoustic">
+                    <div class="sheet-header sheet-header-sub">
+                        <button type="button" class="icon-btn glass-btn back-btn" data-pop aria-label="Back">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                        </button>
+                        <h3>Acoustic</h3>
+                        <span class="header-spacer"></span>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="ios-group">
+                            <div class="ios-inset">
+                                <div class="ios-row">
+                                    <label for="ultrasound-toggle">Ultrasound</label>
+                                    <label class="ios-switch">
+                                        <input type="checkbox" id="ultrasound-toggle" checked>
+                                        <span class="ios-switch-track"></span>
+                                    </label>
+                                </div>
+                                <div class="ios-row stack">
+                                    <div class="ios-row-main">
+                                        <label for="protocol-rate">Rate</label>
+                                        <span class="row-value" id="protocol-rate-val">Fastest</span>
+                                    </div>
+                                    <input type="range" id="protocol-rate" min="0" max="2" step="1" value="2">
+                                </div>
+                                <div class="ios-row stack">
+                                    <div class="ios-row-main">
+                                        <label for="volume-range">Tx Volume</label>
+                                        <span class="row-value"><span id="volume-val">60</span>%</span>
+                                    </div>
+                                    <input type="range" id="volume-range" min="10" max="100" value="60">
+                                </div>
+                                <div class="ios-row stack">
+                                    <div class="ios-row-main">
+                                        <label for="sensitivity-range">Rx Gain</label>
+                                        <span class="row-value"><span id="sensitivity-val">1.0</span>x</span>
+                                    </div>
+                                    <input type="range" id="sensitivity-range" min="0.5" max="3.0" step="0.1" value="1.0">
+                                </div>
+                                <div class="ios-row">
+                                    <label for="sound-feedback-toggle">Tx Audio Feedback</label>
+                                    <label class="ios-switch">
+                                        <input type="checkbox" id="sound-feedback-toggle" checked>
+                                        <span class="ios-switch-track"></span>
+                                    </label>
+                                </div>
                             </div>
-                            <input type="range" id="volume-range" min="10" max="100" value="60">
+                            <p class="ios-footer">Ultrasound (18 kHz+) is near-silent, but may be less reliable in noisy environments. Disabling ultrasound switches to a more robust, audible protocol. Rate controls how fast each message is sent. Slower is more reliable.</p>
                         </div>
-                        <div class="ios-row stack">
-                            <div class="ios-row-main">
-                                <label for="sensitivity-range">Rx Gain</label>
-                                <span class="row-value"><span id="sensitivity-val">1.0</span>x</span>
+                    </div>
+                </div>
+
+                <div class="settings-page" data-page="identity">
+                    <div class="sheet-header sheet-header-sub">
+                        <button type="button" class="icon-btn glass-btn back-btn" data-pop aria-label="Back">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                        </button>
+                        <h3>Callsigns &amp; Encryption</h3>
+                        <span class="header-spacer"></span>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="ios-group">
+                            <p class="ios-caption">You</p>
+                            <div class="ios-inset">
+                                <label class="ios-row stack" for="callsign-input">
+                                    <span>Callsign</span>
+                                    <input type="text" id="callsign-input" placeholder="OpenWave User" value="OpenWave User">
+                                </label>
                             </div>
-                            <input type="range" id="sensitivity-range" min="0.5" max="3.0" step="0.1" value="1.0">
                         </div>
-                        <div class="ios-row">
-                            <label for="sound-feedback-toggle">Tx Audio Feedback</label>
-                            <label class="ios-switch">
-                                <input type="checkbox" id="sound-feedback-toggle" checked>
-                                <span class="ios-switch-track"></span>
-                            </label>
+                        <div class="ios-group">
+                            <p class="ios-caption">Encryption</p>
+                            <div class="ios-inset">
+                                <div class="ios-row">
+                                    <label for="encryption-toggle">Encryption</label>
+                                    <label class="ios-switch">
+                                        <input type="checkbox" id="encryption-toggle">
+                                        <span class="ios-switch-track"></span>
+                                    </label>
+                                </div>
+                                <label class="ios-row stack" for="passkey-input" id="passkey-row">
+                                    <span>Passkey</span>
+                                    <input type="password" id="passkey-input" placeholder="Optional">
+                                </label>
+                            </div>
+                            <p class="ios-footer">Keep your passkey saved and use the toggle to send in the clear. Encrypted bubbles appear purple.</p>
+                        </div>
+                        <div class="ios-group">
+                            <p class="ios-caption">Contacts</p>
+                            <div class="ios-inset" id="contacts-list" hidden></div>
+                            <div class="ios-inset" id="add-contact-wrap">
+                                <button type="button" class="action-btn" id="add-contact-btn">Add Contact</button>
+                            </div>
+                            <p class="ios-footer" id="contacts-empty">Add a friend’s callsign and key to decrypt their messages.</p>
                         </div>
                     </div>
-                    <p class="ios-footer">Ultrasound (18 kHz+) is near-silent, but may be less reliable in noisy environments. Disabling ultrasound switches to a more robust, audible protocal. Rate controls how fast each message is sent. Slower is more reliable.</p>
                 </div>
 
-                <div class="ios-group">
-                    <p class="ios-caption">Identity</p>
-                    <div class="ios-inset">
-                        <label class="ios-row stack" for="callsign-input">
-                            <span>Callsign</span>
-                            <input type="text" id="callsign-input" placeholder="OpenWave User" value="OpenWave User">
-                        </label>
-                        <label class="ios-row stack" for="passkey-input">
-                            <span>Encryption Passkey</span>
-                            <input type="password" id="passkey-input" placeholder="Optional">
-                        </label>
-                        <label class="ios-row stack" for="contacts-input">
-                            <span>Contact Keys</span>
-                            <textarea id="contacts-input" placeholder="Callsign:Key" rows="3"></textarea>
-                        </label>
+                <div class="settings-page" data-page="contact-edit">
+                    <div class="sheet-header sheet-header-sub">
+                        <button type="button" class="icon-btn glass-btn back-btn" data-pop aria-label="Back">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                        </button>
+                        <h3 id="contact-edit-title">Add Contact</h3>
+                        <button type="button" class="glass-btn glass-pill" id="save-contact-btn">Save</button>
                     </div>
-                    <p class="ios-footer">Add friends as Callsign:Key, one per line, to decrypt their messages.</p>
-                </div>
-
-                <div class="ios-group">
-                    <p class="ios-caption">System</p>
-                    <div class="ios-inset">
-                        <div class="ios-row">
-                            <span>Engine</span>
-                            <span id="engine-status-label" class="row-value init">Initializing</span>
+                    <div class="sidebar-content">
+                        <div class="ios-group">
+                            <div class="ios-inset">
+                                <label class="ios-row stack" for="contact-callsign-input">
+                                    <span>Callsign</span>
+                                    <input type="text" id="contact-callsign-input" placeholder="Required" autocomplete="off">
+                                </label>
+                                <label class="ios-row stack" for="contact-key-input">
+                                    <span>Encryption Key</span>
+                                    <input type="text" id="contact-key-input" placeholder="Required" autocomplete="off">
+                                </label>
+                            </div>
+                            <p class="ios-footer">Used to decrypt messages from this callsign.</p>
                         </div>
-                        <p id="engine-status-detail" class="engine-detail">Starting ggwave…</p>
+                        <div class="ios-group" id="delete-contact-wrap" hidden>
+                            <div class="ios-inset">
+                                <button type="button" class="action-btn danger" id="delete-contact-btn">Delete Contact</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="ios-group">
-                    <p class="ios-caption">Diagnostics</p>
-                    <div class="ios-inset">
-                        <button id="loopback-test-btn" class="action-btn" type="button">Run Loopback Self-Test</button>
-                        <div id="test-result" class="test-result"></div>
+                <div class="settings-page" data-page="system">
+                    <div class="sheet-header sheet-header-sub">
+                        <button type="button" class="icon-btn glass-btn back-btn" data-pop aria-label="Back">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                        </button>
+                        <h3>System</h3>
+                        <span class="header-spacer"></span>
                     </div>
-                    <p class="ios-footer">Generates a local signal to verify the WebAssembly engine and audio loopback.</p>
-                </div>
-
-                <div class="ios-group">
-                    <div class="ios-inset">
-                        <button id="clear-chat-btn" class="action-btn danger" type="button">Clear Conversation</button>
+                    <div class="sidebar-content">
+                        <div class="ios-group">
+                            <p class="ios-caption">Engine</p>
+                            <div class="ios-inset">
+                                <div class="ios-row">
+                                    <span>Status</span>
+                                    <span id="engine-status-label" class="row-value init">Initializing</span>
+                                </div>
+                                <p id="engine-status-detail" class="engine-detail">Starting ggwave…</p>
+                            </div>
+                        </div>
+                        <div class="ios-group">
+                            <p class="ios-caption">Diagnostics</p>
+                            <div class="ios-inset">
+                                <button id="loopback-test-btn" class="action-btn" type="button">Run Loopback Self-Test</button>
+                                <div id="test-result" class="test-result"></div>
+                            </div>
+                            <p class="ios-footer">Generates a local signal to verify the WebAssembly engine and audio loopback.</p>
+                        </div>
+                        <div class="ios-group">
+                            <div class="ios-inset">
+                                <button id="clear-chat-btn" class="action-btn danger" type="button">Clear Conversation</button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                <div class="settings-attribution">
-                    <p>OpenWave v1.0 by Caleb Mathis</p>
-                    <p>Built on Wavest by Benn Jordan & GGWave by Georgi Gerganov.</p>
                 </div>
             </div>
         </section>

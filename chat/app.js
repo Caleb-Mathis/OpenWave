@@ -26,6 +26,9 @@ const DEFAULT_CALLSIGN = 'OpenWave User';
 let myCallsign = DEFAULT_CALLSIGN;
 let myPasskey = '';
 let contactKeys = {};
+let encryptionEnabled = false;
+let settingsStack = ['root'];
+let editingCallsign = null;
 
 // Visualization configuration
 let animationFrameId = null;
@@ -440,19 +443,7 @@ function setupUIEventListeners() {
     // Capture Toggle Listener
     captureToggleBtn.addEventListener('click', toggleAudioCapture);
 
-    // Settings Sidebar
-    openSettingsBtn.addEventListener('click', () => {
-        settingsSidebar.classList.add('open');
-        settingsSidebar.setAttribute('aria-hidden', 'false');
-        sidebarOverlay.classList.add('visible');
-    });
-    const closeSidebar = () => {
-        settingsSidebar.classList.remove('open');
-        settingsSidebar.setAttribute('aria-hidden', 'true');
-        sidebarOverlay.classList.remove('visible');
-    };
-    closeSettingsBtn.addEventListener('click', closeSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
+    bindSettingsNavigation();
 
     if (messageInput) {
         messageInput.addEventListener('input', updateSendEnabled);
@@ -482,11 +473,13 @@ function setupUIEventListeners() {
 
     loopbackTestBtn.addEventListener('click', runDiagnosticsLoopback);
 
-    clearChatBtn.addEventListener('click', () => {
-        if (chatThread) chatThread.innerHTML = '';
-        else chatMessages.innerHTML = '';
-        closeSidebar();
-    });
+    if (clearChatBtn) {
+        clearChatBtn.addEventListener('click', () => {
+            if (chatThread) chatThread.innerHTML = '';
+            else chatMessages.innerHTML = '';
+            closeSettings();
+        });
+    }
 }
 
 function sendVizBand(sampleRate, windowSize) {
@@ -854,8 +847,7 @@ async function transmitMessage() {
                     }
                 };
                 
-                // Display message in chat feed
-                const isEncrypted = !!myPasskey;
+                const isEncrypted = encryptionEnabled && !!myPasskey;
                 appendMessage(myCallsign, text, 'sent', isEncrypted);
                 
                 startSendViz(floatArray);
@@ -893,12 +885,7 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     contentDiv.appendChild(textSpan);
     
     // Encryption Lock indicator
-    if (isEncrypted) {
-        const lockIcon = document.createElement('span');
-        lockIcon.className = 'msg-lock';
-        lockIcon.innerText = '🔒';
-        contentDiv.appendChild(lockIcon);
-    }
+    if (isEncrypted) messageDiv.classList.add('encrypted');
     
     const timeSpan = document.createElement('span');
     timeSpan.className = 'msg-time';
@@ -1104,12 +1091,11 @@ async function decryptPayload(encryptedBase64, password) {
 // Prepare outgoing packet
 async function prepareTransmitPacket(messageText) {
     const cleanCallsign = myCallsign.replace(/[|:]/g, ''); // strip separators
-    if (myPasskey) {
+    if (encryptionEnabled && myPasskey) {
         const ciphertext = await encryptPayload(messageText, myPasskey);
         return `E:${cleanCallsign}|${ciphertext}`;
-    } else {
-        return `U:${cleanCallsign}|${messageText}`;
     }
+    return `U:${cleanCallsign}|${messageText}`;
 }
 
 // Parse incoming packet
@@ -1137,7 +1123,7 @@ async function parseReceivedPacket(rawPayload) {
                     return { sender, message: decrypted, encrypted: true, decrypted: true };
                 }
             }
-            return { sender, message: '[Encrypted Message - Key Required]', encrypted: true, decrypted: false };
+            return { sender, message: '[Encrypted]', encrypted: true, decrypted: false };
         }
     }
     // Legacy fallback (no headers)
@@ -1158,7 +1144,23 @@ function resampleBuffer(inputBuffer, factor) {
     return outputBuffer;
 }
 
-// Load secure settings from localStorage
+function parseContactsRaw(raw) {
+    const next = {};
+    String(raw || '').split('\n').forEach((line) => {
+        const parts = line.trim().split(':');
+        if (parts.length < 2) return;
+        const call = parts[0].trim();
+        const key = parts.slice(1).join(':').trim();
+        if (call && key) next[call] = key;
+    });
+    return next;
+}
+
+function persistContacts() {
+    const lines = Object.keys(contactKeys).map((call) => `${call}:${contactKeys[call]}`);
+    localStorage.setItem('wavest_contacts', lines.join('\n'));
+}
+
 function loadSecureSettings() {
     const savedCallsign = localStorage.getItem('wavest_callsign');
     if (!savedCallsign || savedCallsign === 'WavestUser') {
@@ -1167,37 +1169,32 @@ function loadSecureSettings() {
         myCallsign = savedCallsign;
     }
     myPasskey = localStorage.getItem('wavest_passkey') || '';
-    const contactsRaw = localStorage.getItem('wavest_contacts') || '';
-    
-    // Parse contacts (Callsign:Key, one per line)
-    contactKeys = {};
-    const lines = contactsRaw.split('\n');
-    for (const line of lines) {
-        const parts = line.trim().split(':');
-        if (parts.length >= 2) {
-            const call = parts[0].trim();
-            const key = parts.slice(1).join(':').trim();
-            if (call && key) {
-                contactKeys[call] = key;
-            }
-        }
-    }
+    contactKeys = parseContactsRaw(localStorage.getItem('wavest_contacts') || '');
 
-    // Set values in elements
+    const savedEnc = localStorage.getItem('wavest_encryption_on');
+    if (savedEnc === '0') encryptionEnabled = false;
+    else if (savedEnc === '1') encryptionEnabled = true;
+    else encryptionEnabled = !!myPasskey;
+
     const callsignInput = document.getElementById('callsign-input');
     const passkeyInput = document.getElementById('passkey-input');
-    const contactsInput = document.getElementById('contacts-input');
-
+    const encryptionToggle = document.getElementById('encryption-toggle');
     if (callsignInput) callsignInput.value = myCallsign;
     if (passkeyInput) passkeyInput.value = myPasskey;
-    if (contactsInput) contactsInput.value = contactsRaw;
+    if (encryptionToggle) encryptionToggle.checked = encryptionEnabled;
+    syncPasskeyEnabled();
+    renderContactList();
 }
 
-// Bind secure settings event listeners
 function bindSecureSettingsListeners() {
     const callsignInput = document.getElementById('callsign-input');
     const passkeyInput = document.getElementById('passkey-input');
-    const contactsInput = document.getElementById('contacts-input');
+    const encryptionToggle = document.getElementById('encryption-toggle');
+    const addContactBtn = document.getElementById('add-contact-btn');
+    const saveContactBtn = document.getElementById('save-contact-btn');
+    const deleteContactBtn = document.getElementById('delete-contact-btn');
+    const contactCallsignInput = document.getElementById('contact-callsign-input');
+    const contactKeyInput = document.getElementById('contact-key-input');
 
     if (callsignInput) {
         const updateCallsign = (e) => {
@@ -1219,46 +1216,210 @@ function bindSecureSettingsListeners() {
         passkeyInput.addEventListener('blur', updatePasskey);
     }
 
-    if (contactsInput) {
-        const updateContacts = (e) => {
-            const val = e.target.value;
-            localStorage.setItem('wavest_contacts', val);
-            
-            contactKeys = {};
-            const lines = val.split('\n');
-            for (const line of lines) {
-                const parts = line.trim().split(':');
-                if (parts.length >= 2) {
-                    const call = parts[0].trim();
-                    const key = parts.slice(1).join(':').trim();
-                    if (call && key) {
-                        contactKeys[call] = key;
-                    }
-                }
-            }
-        };
-        contactsInput.addEventListener('input', updateContacts);
-        contactsInput.addEventListener('change', updateContacts);
-        contactsInput.addEventListener('blur', updateContacts);
+    if (encryptionToggle) {
+        encryptionToggle.addEventListener('change', (e) => {
+            encryptionEnabled = e.target.checked;
+            localStorage.setItem('wavest_encryption_on', encryptionEnabled ? '1' : '0');
+            syncPasskeyEnabled();
+        });
     }
 
-    // Programmatic test helper triggered by tapping the version footer
+    if (addContactBtn) {
+        addContactBtn.addEventListener('click', () => openContactEditor(null));
+    }
+    if (saveContactBtn) {
+        saveContactBtn.addEventListener('click', saveContactEditor);
+    }
+    if (deleteContactBtn) {
+        deleteContactBtn.addEventListener('click', () => {
+            if (!editingCallsign) return;
+            deleteContact(editingCallsign);
+            popSettingsPage();
+        });
+    }
+    const syncSave = () => updateContactSaveState();
+    if (contactCallsignInput) contactCallsignInput.addEventListener('input', syncSave);
+    if (contactKeyInput) contactKeyInput.addEventListener('input', syncSave);
+
     const attribution = document.querySelector('.settings-attribution');
     if (attribution) {
         attribution.addEventListener('click', () => {
+            myPasskey = 'jordan123';
+            encryptionEnabled = true;
+            contactKeys[DEFAULT_CALLSIGN] = 'jordan123';
+            persistContacts();
+            localStorage.setItem('wavest_passkey', myPasskey);
+            localStorage.setItem('wavest_encryption_on', '1');
             const passInput = document.getElementById('passkey-input');
-            if (passInput) {
-                passInput.value = 'jordan123';
-                passInput.dispatchEvent(new Event('change'));
-            }
-            const contactsInput = document.getElementById('contacts-input');
-            if (contactsInput) {
-                contactsInput.value = `${DEFAULT_CALLSIGN}:jordan123`;
-                contactsInput.dispatchEvent(new Event('change'));
-            }
+            const encToggle = document.getElementById('encryption-toggle');
+            if (passInput) passInput.value = myPasskey;
+            if (encToggle) encToggle.checked = true;
+            syncPasskeyEnabled();
+            renderContactList();
             console.log('DEBUG: Encryption keys programmatically set.');
         });
     }
+}
+
+function syncPasskeyEnabled() {
+    const passkeyInput = document.getElementById('passkey-input');
+    const passkeyRow = document.getElementById('passkey-row');
+    if (passkeyInput) passkeyInput.disabled = !encryptionEnabled;
+    if (passkeyRow) passkeyRow.classList.toggle('is-disabled', !encryptionEnabled);
+}
+
+function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, (ch) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
+}
+
+function renderContactList() {
+    const list = document.getElementById('contacts-list');
+    const empty = document.getElementById('contacts-empty');
+    if (!list) return;
+    const names = Object.keys(contactKeys).sort((a, b) => a.localeCompare(b));
+    list.innerHTML = '';
+    if (!names.length) {
+        list.hidden = true;
+        if (empty) empty.textContent = 'Add a friend’s callsign and key to decrypt their messages.';
+        return;
+    }
+    list.hidden = false;
+    if (empty) empty.textContent = 'Tap a contact to edit or delete it.';
+    names.forEach((name) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'ios-row settings-link';
+        row.innerHTML = `
+            <span>${escapeHtml(name)}</span>
+            <span class="settings-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
+            </span>`;
+        bindSettingsRowPress(row, () => openContactEditor(name));
+        list.appendChild(row);
+    });
+}
+
+function deleteContact(callsign) {
+    if (!callsign || !contactKeys[callsign]) return;
+    delete contactKeys[callsign];
+    persistContacts();
+    renderContactList();
+}
+
+function updateContactSaveState() {
+    const saveBtn = document.getElementById('save-contact-btn');
+    const call = (document.getElementById('contact-callsign-input') || {}).value || '';
+    const key = (document.getElementById('contact-key-input') || {}).value || '';
+    if (saveBtn) saveBtn.disabled = !(call.trim() && key.trim());
+}
+
+function openContactEditor(callsign) {
+    editingCallsign = callsign || null;
+    const title = document.getElementById('contact-edit-title');
+    const callInput = document.getElementById('contact-callsign-input');
+    const keyInput = document.getElementById('contact-key-input');
+    if (title) title.textContent = editingCallsign ? 'Contact' : 'Add Contact';
+    if (callInput) callInput.value = editingCallsign || '';
+    if (keyInput) keyInput.value = editingCallsign ? (contactKeys[editingCallsign] || '') : '';
+    const deleteWrap = document.getElementById('delete-contact-wrap');
+    if (deleteWrap) deleteWrap.hidden = !editingCallsign;
+    updateContactSaveState();
+    pushSettingsPage('contact-edit');
+}
+
+function saveContactEditor() {
+    const callInput = document.getElementById('contact-callsign-input');
+    const keyInput = document.getElementById('contact-key-input');
+    const call = ((callInput && callInput.value) || '').replace(/[|:]/g, '').trim();
+    const key = ((keyInput && keyInput.value) || '').trim();
+    if (!call || !key) return;
+    if (editingCallsign && editingCallsign !== call) delete contactKeys[editingCallsign];
+    contactKeys[call] = key;
+    persistContacts();
+    renderContactList();
+    popSettingsPage();
+}
+
+function showSettingsPage(id) {
+    document.querySelectorAll('.settings-page').forEach((page) => {
+        const pid = page.getAttribute('data-page');
+        const isTop = pid === id;
+        const stackIndex = settingsStack.indexOf(pid);
+        const isBehind = !isTop && stackIndex !== -1 && stackIndex === settingsStack.length - 2;
+        page.classList.toggle('is-active', isTop);
+        page.classList.toggle('is-behind', isBehind);
+    });
+}
+
+function pushSettingsPage(id) {
+    if (settingsStack[settingsStack.length - 1] === id) return;
+    settingsStack.push(id);
+    showSettingsPage(id);
+}
+
+function popSettingsPage() {
+    if (settingsStack.length < 2) return;
+    settingsStack.pop();
+    showSettingsPage(settingsStack[settingsStack.length - 1]);
+}
+
+function closeSettings() {
+    if (!settingsSidebar) return;
+    settingsSidebar.classList.remove('open');
+    settingsSidebar.setAttribute('aria-hidden', 'true');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('visible');
+    settingsStack = ['root'];
+    showSettingsPage('root');
+}
+
+function bindSettingsRowPress(el, onActivate) {
+    if (!el) return;
+    let held = false;
+    el.addEventListener('pointerdown', () => {
+        held = true;
+        el.classList.add('is-pressed');
+    });
+    el.addEventListener('pointerleave', () => {
+        if (!held || el.dataset.opening === '1') return;
+        held = false;
+        el.classList.remove('is-pressed');
+    });
+    el.addEventListener('pointercancel', () => {
+        held = false;
+        el.classList.remove('is-pressed');
+    });
+    el.addEventListener('click', () => {
+        el.dataset.opening = '1';
+        if (onActivate) onActivate();
+        setTimeout(() => {
+            delete el.dataset.opening;
+            held = false;
+            el.classList.remove('is-pressed');
+        }, 420);
+    });
+}
+
+function bindSettingsNavigation() {
+    if (openSettingsBtn) {
+        openSettingsBtn.addEventListener('click', () => {
+            settingsStack = ['root'];
+            showSettingsPage('root');
+            settingsSidebar.classList.add('open');
+            settingsSidebar.setAttribute('aria-hidden', 'false');
+            if (sidebarOverlay) sidebarOverlay.classList.add('visible');
+        });
+    }
+    if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSettings);
+
+    document.querySelectorAll('[data-push]').forEach((btn) => {
+        bindSettingsRowPress(btn, () => pushSettingsPage(btn.getAttribute('data-push')));
+    });
+    document.querySelectorAll('[data-pop]').forEach((btn) => {
+        btn.addEventListener('click', popSettingsPage);
+    });
 }
 
 function cssVar(name, fallback) {
