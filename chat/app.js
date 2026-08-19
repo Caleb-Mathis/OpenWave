@@ -70,6 +70,8 @@ window.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvases);
 
     applyTheme('midnight', false);
+    setupViewportLock();
+    registerServiceWorker();
     setEngineStatus('init', 'Starting ggwave…');
 
     // Hook up ggwave factory
@@ -124,6 +126,153 @@ function measureCanvasBox(el, fallbackH) {
         h = fallbackH;
     }
     return { w, h };
+}
+
+function isTextField(el) {
+    if (!el || el === document.body) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+function setupViewportLock() {
+    const root = document.documentElement;
+    const HINT_KEY = 'wavest_kb_inset';
+    let lastInset = -1;
+    let trackingUntil = 0;
+    let trackRaf = 0;
+
+    if (navigator.virtualKeyboard) {
+        try {
+            navigator.virtualKeyboard.overlaysContent = true;
+        } catch (err) {
+            /* Safari may expose the object without this setter */
+        }
+    }
+
+    const measuredInset = () => {
+        const vv = window.visualViewport;
+        const layoutH = window.innerHeight;
+        const vvH = vv ? vv.height : layoutH;
+        const vvTop = vv ? vv.offsetTop : 0;
+        const fromViewport = Math.max(0, layoutH - vvH - vvTop);
+        const fromVk = (navigator.virtualKeyboard && navigator.virtualKeyboard.boundingRect)
+            ? navigator.virtualKeyboard.boundingRect.height
+            : 0;
+        return Math.max(fromViewport, fromVk);
+    };
+
+    const apply = () => {
+        if (window.scrollY !== 0 || window.scrollX !== 0) {
+            window.scrollTo(0, 0);
+        }
+
+        const typing = isTextField(document.activeElement);
+        let inset = measuredInset();
+
+        if (typing && inset < 80) {
+            const hinted = Number(sessionStorage.getItem(HINT_KEY) || 0);
+            if (lastInset > 80) inset = lastInset;
+            else if (hinted > 80) inset = hinted;
+        }
+        if (!typing && inset < 80) inset = 0;
+
+        if (inset > 80) {
+            sessionStorage.setItem(HINT_KEY, String(Math.round(inset)));
+        }
+
+        const wasOpen = document.body.classList.contains('keyboard-open');
+        const keyboardOpen = inset > 80;
+        document.body.classList.toggle('keyboard-open', keyboardOpen);
+
+        if (Math.abs(inset - lastInset) > 0.5) {
+            lastInset = inset;
+            root.style.setProperty('--kb-js', `${inset}px`);
+            resizeCanvases();
+        }
+
+        if (keyboardOpen && chatMessages) {
+            const slack = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
+            if (slack < 96 || !wasOpen) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+    };
+
+    const track = () => {
+        apply();
+        if (performance.now() < trackingUntil) {
+            trackRaf = requestAnimationFrame(track);
+        } else {
+            trackRaf = 0;
+        }
+    };
+
+    const startTracking = (ms) => {
+        trackingUntil = Math.max(trackingUntil, performance.now() + ms);
+        if (!trackRaf) trackRaf = requestAnimationFrame(track);
+    };
+
+    const prelift = () => {
+        let inset = measuredInset();
+        if (inset < 80) {
+            const hinted = Number(sessionStorage.getItem(HINT_KEY) || 0);
+            if (hinted > 80) {
+                inset = hinted;
+            } else if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+                || window.matchMedia('(pointer: coarse)').matches) {
+                inset = 300;
+            }
+        }
+        if (inset > 80) {
+            lastInset = inset;
+            root.style.setProperty('--kb-js', `${inset}px`);
+            document.body.classList.add('keyboard-open');
+        }
+        startTracking(700);
+    };
+
+    apply();
+    window.addEventListener('resize', () => startTracking(400));
+    window.addEventListener('orientationchange', () => {
+        sessionStorage.removeItem(HINT_KEY);
+        startTracking(500);
+    });
+    window.addEventListener('scroll', () => window.scrollTo(0, 0), { passive: false });
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => startTracking(400));
+        window.visualViewport.addEventListener('scroll', () => {
+            window.scrollTo(0, 0);
+            startTracking(400);
+        });
+    }
+
+    if (navigator.virtualKeyboard) {
+        navigator.virtualKeyboard.addEventListener('geometrychange', () => startTracking(400));
+    }
+
+    document.addEventListener('focusin', (event) => {
+        if (!isTextField(event.target)) return;
+        prelift();
+    });
+    document.addEventListener('focusout', () => startTracking(400));
+
+    if (messageInput) {
+        messageInput.addEventListener('touchstart', prelift, { passive: true });
+    }
+
+    document.addEventListener('touchmove', (event) => {
+        if (event.touches.length > 1) return;
+        const scrollable = event.target.closest('.chat-messages, .sidebar-content, textarea');
+        if (!scrollable) event.preventDefault();
+    }, { passive: false });
+}
+
+function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+        console.warn('Service worker registration failed:', err);
+    });
 }
 
 function resizeCanvases() {

@@ -125,18 +125,29 @@ html {
     -webkit-tap-highlight-color: transparent;
 }
 
+:root {
+    --vv-top: 0px;
+    --vv-height: 100%;
+    --kb-js: 0px;
+    --kb-inset: var(--kb-js);
+    --composer-pad-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
 html,
 body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
     height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 
 body {
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
+    touch-action: manipulation;
 }
 
 ::-webkit-scrollbar {
@@ -164,13 +175,16 @@ body {
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
     width: 100%;
     max-width: 430px;
+    height: 100%;
     background:
         radial-gradient(120% 70% at 50% 0%, rgba(90, 140, 255, 0.08), transparent 52%),
         var(--bg);
-    position: relative;
     overflow: hidden;
 }
 
@@ -182,9 +196,13 @@ body {
     right: 0;
     display: grid;
     grid-template-columns: 44px 1fr 44px;
+    grid-template-areas:
+        "settings avatar spacer"
+        ". titles .";
     align-items: center;
-    gap: 10px;
-    padding: calc(env(safe-area-inset-top, 20px) + 22px) 14px 18px;
+    column-gap: 10px;
+    row-gap: 4px;
+    padding: calc(env(safe-area-inset-top, 20px) + 10px) 14px 18px;
     background: linear-gradient(to bottom, var(--edge-fade) 0%, var(--bg-nav) 62%, transparent 100%);
     backdrop-filter: saturate(190%) blur(28px);
     -webkit-backdrop-filter: saturate(190%) blur(28px);
@@ -193,34 +211,34 @@ body {
     pointer-events: none;
 }
 
+#open-settings-btn {
+    grid-area: settings;
+    width: 44px;
+    height: 44px;
+}
+
 .nav-bar > * {
     pointer-events: auto;
 }
 
-.nav-identity {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 0;
-}
-
 .nav-avatar {
+    grid-area: avatar;
+    justify-self: center;
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     background: var(--glass-tint);
     color: var(--text);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 5px;
     box-shadow: inset 0 0.5px 0 var(--glass-highlight);
 }
 
 .nav-avatar svg {
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
 }
 
 .status-dot {
@@ -247,7 +265,15 @@ body {
     box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.3);
 }
 
-.nav-identity h1 {
+.nav-titles {
+    grid-area: titles;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.nav-titles h1 {
     font-size: 20px;
     font-weight: 600;
     letter-spacing: -0.3px;
@@ -260,6 +286,7 @@ body {
     font-weight: 400;
     color: var(--text-secondary);
     letter-spacing: -0.08px;
+    text-align: center;
 }
 
 .nav-sep {
@@ -289,8 +316,8 @@ body {
 }
 
 .icon-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
 }
 
 .icon-btn:active {
@@ -299,8 +326,9 @@ body {
 }
 
 .nav-spacer {
-    width: 40px;
-    height: 40px;
+    grid-area: spacer;
+    width: 44px;
+    height: 44px;
 }
 
 /* --- Chat --- */
@@ -317,7 +345,7 @@ body {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: calc(env(safe-area-inset-bottom, 10px) + 78px);
+    bottom: calc(var(--composer-pad-bottom) + 50px + var(--kb-inset, 0px));
     width: 100%;
     height: 36%;
     max-height: 260px;
@@ -331,6 +359,10 @@ body {
 
 .send-viz.active {
     opacity: 1;
+}
+
+.keyboard-open .send-viz {
+    bottom: calc(58px + var(--kb-inset, 0px));
 }
 
 .chat-container::before,
@@ -351,7 +383,7 @@ body {
 
 .chat-container::after {
     bottom: 0;
-    height: 108px;
+    height: 80px;
     z-index: 0;
     background: linear-gradient(to top, var(--edge-fade), transparent);
 }
@@ -364,7 +396,9 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: calc(env(safe-area-inset-top, 20px) + 136px) 14px calc(env(safe-area-inset-bottom, 10px) + 112px);
+    padding: calc(env(safe-area-inset-top, 20px) + 136px) 14px calc(var(--composer-pad-bottom) + 56px + var(--kb-inset, 0px));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .message {
@@ -460,12 +494,16 @@ body {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--kb-inset, 0px);
     background: transparent;
     border-top: none;
-    padding: 0 12px calc(env(safe-area-inset-bottom, 10px) + 28px);
+    padding: 0 12px var(--composer-pad-bottom);
     z-index: 10;
     pointer-events: none;
+}
+
+.keyboard-open {
+    --composer-pad-bottom: 8px;
 }
 
 .composer-row {
@@ -580,7 +618,7 @@ body {
 .app-toast {
     position: absolute;
     left: 50%;
-    top: calc(env(safe-area-inset-top, 20px) + 122px);
+    top: calc(env(safe-area-inset-top, 20px) + 110px);
     transform: translate(-50%, -8px);
     max-width: calc(100% - 40px);
     padding: 10px 16px;

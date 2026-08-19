@@ -30,11 +30,12 @@ log "Building cache-busted site in ${DIST#"$ROOT/"}"
 replacements="$(mktemp)"
 trap 'rm -f "$replacements"' EXIT
 
-# Hash every non-HTML file (except this script and the build dir).
+# Hash cacheable CSS/JS. Leave HTML, the service worker, manifest, and icons
+# at stable names so the PWA can install and update.
 while IFS= read -r -d '' src; do
   rel="${src#"$ROOT"/}"
   case "$rel" in
-    deploy.sh|.deploy|.deploy/*|.git|.git/*|.DS_Store)
+    deploy.sh|.DS_Store)
       continue
       ;;
     *.html|*.htm)
@@ -44,20 +45,31 @@ while IFS= read -r -d '' src; do
 
   dir="$(dirname "$rel")"
   name="$(basename "$rel")"
-  ext="${name##*.}"
-  base="${name%.*}"
-  hashed="${base}.$(short_hash "$src").${ext}"
-
-  if [ "$dir" = "." ]; then
-    dest_rel="$hashed"
-  else
+  if [ "$dir" != "." ]; then
     mkdir -p "$DIST/$dir"
-    dest_rel="$dir/$hashed"
   fi
 
-  cp "$src" "$DIST/$dest_rel"
-  printf '%s\t%s\n' "$rel" "$dest_rel" >>"$replacements"
-  log "  $rel -> $dest_rel"
+  should_hash=0
+  case "$rel" in
+    sw.js) should_hash=0 ;;
+    *.js|*.css) should_hash=1 ;;
+  esac
+
+  if [ "$should_hash" -eq 1 ]; then
+    ext="${name##*.}"
+    base="${name%.*}"
+    hashed="${base}.$(short_hash "$src").${ext}"
+    dest_rel="$hashed"
+    if [ "$dir" != "." ]; then
+      dest_rel="$dir/$hashed"
+    fi
+    cp "$src" "$DIST/$dest_rel"
+    printf '%s\t%s\n' "$rel" "$dest_rel" >>"$replacements"
+    log "  $rel -> $dest_rel"
+  else
+    cp "$src" "$DIST/$rel"
+    log "  $rel"
+  fi
 done < <(find "$ROOT" \( -path "$ROOT/.deploy" -o -path "$ROOT/.git" \) -prune -o -type f -print0)
 
 # Copy HTML and rewrite asset references to hashed names.
