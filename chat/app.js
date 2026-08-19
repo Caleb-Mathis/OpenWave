@@ -4,10 +4,6 @@ let microphoneStream = null;
 let mediaStreamNode = null;
 let analyserNode = null;
 let recorderNode = null;
-let recorderSilentGain = null;
-let recorderDummyDest = null;
-let captureWorkletNode = null;
-let captureWorkletLoaded = false;
 
 // ggwave Global instances
 let ggwave = null;
@@ -24,17 +20,6 @@ let isCapturing = false;
 let isTransmitting = false;
 let soundFeedbackEnabled = true;
 let micAccessGranted = localStorage.getItem('wavest_mic_granted') === '1';
-let rxDuringTx = false;
-let rxDebugTimer = null;
-let rxDebug = {
-    backend: 'idle',
-    buffers: 0,
-    windowBuffers: 0,
-    buffersPerSec: 0,
-    rms: 0,
-    hits: 0,
-    lastPayload: '—'
-};
 
 // Secure Communication State
 let myCallsign = 'WavestUser';
@@ -78,7 +63,6 @@ const navListenState = document.getElementById('nav-listen-state');
 const engineStatusLabel = document.getElementById('engine-status-label');
 const engineStatusDetail = document.getElementById('engine-status-detail');
 const appToast = document.getElementById('app-toast');
-
 // Instantiate ggwave on page load
 window.addEventListener('DOMContentLoaded', () => {
     // Resize canvases to fit wrappers
@@ -146,7 +130,7 @@ function resizeCanvases() {
     if (!sendVizCanvas || !sendVizCtx) return;
     const parent = sendVizCanvas.parentElement;
     const w = parent ? parent.clientWidth : 300;
-    const h = sendVizCanvas.clientHeight || 220;
+    const h = sendVizCanvas.clientHeight || 168;
     sendVizCanvas.width = Math.max(2, w);
     sendVizCanvas.height = Math.max(2, h);
     sendVizCtx.clearRect(0, 0, sendVizCanvas.width, sendVizCanvas.height);
@@ -188,11 +172,18 @@ function setupUIEventListeners() {
     // Settings Inputs Binding
     protocolSelect.addEventListener('change', (e) => {
         const val = parseInt(e.target.value, 10);
-        if (protocolsMap && protocolsMap[val] !== undefined) {
-            currentProtocolId = protocolsMap[val];
+        const mappedVal = (val >= 6 && val <= 8) ? (val - 3) : val;
+        if (protocolsMap && protocolsMap[mappedVal] !== undefined) {
+            currentProtocolId = protocolsMap[mappedVal];
         }
         if (activeProtocolLbl) {
             activeProtocolLbl.innerText = protocolShortName();
+        }
+        if (ggwaveInstance && audioContext) {
+            ggwaveParameters.sampleRateInp = audioContext.sampleRate;
+            ggwaveParameters.sampleRateOut = audioContext.sampleRate;
+            ggwaveInstance = ggwave.init(ggwaveParameters);
+            ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
         }
     });
 
@@ -209,13 +200,6 @@ function setupUIEventListeners() {
     soundFeedbackToggle.addEventListener('change', (e) => {
         soundFeedbackEnabled = e.target.checked;
     });
-
-    const rxDuringTxToggle = document.getElementById('rx-during-tx-toggle');
-    if (rxDuringTxToggle) {
-        rxDuringTxToggle.addEventListener('change', (e) => {
-            rxDuringTx = e.target.checked;
-        });
-    }
 
     loopbackTestBtn.addEventListener('click', runDiagnosticsLoopback);
 
@@ -256,7 +240,7 @@ function fillSpectrumSlice(samples, offset, windowSize, band, dest) {
 }
 
 function startSendViz(floatArray) {
-    if (!sendVizCanvas || !sendVizCtx || !audioContext) return;
+    if (!sendVizCanvas || !sendVizCtx || !audioContext || !floatArray || !floatArray.length) return;
     resizeCanvases();
     sendVizCtx.clearRect(0, 0, sendVizCanvas.width, sendVizCanvas.height);
     sendVizCanvas.classList.add('active');
@@ -267,8 +251,7 @@ function startSendViz(floatArray) {
     const smoothed = new Float32Array(columns);
     const band = sendVizBand(audioContext.sampleRate, windowSize);
     const txStartTime = audioContext.currentTime;
-    const bubbleHex = cssVar('--bubble-sent', '#0a84ff');
-    const rgb = hexToRgb(bubbleHex);
+    const rgb = hexToRgb(cssVar('--bubble-sent', '#0a84ff'));
 
     const draw = () => {
         if (!isTransmitting) {
@@ -296,7 +279,6 @@ function startSendViz(floatArray) {
             const t = Math.min(1, mags[i] / peak);
             smoothed[i] = smoothed[i] * 0.65 + t * 0.35;
         }
-        // Bloom neighboring bins so tones read as a wash, not spikes
         const bloomed = new Float32Array(columns);
         const pass = (src, dest) => {
             for (let i = 0; i < columns; i++) {
@@ -337,52 +319,21 @@ function stopSendViz() {
     }
 }
 
-// Initialize audio session elements
-function applyGgwaveAudioParams(params) {
-    params.sampleRateInp = audioContext.sampleRate;
-    params.sampleRateOut = audioContext.sampleRate;
-    const formats = ggwave.SampleFormat || {};
-    const f32 = formats.GGWAVE_SAMPLE_FORMAT_F32;
-    if (f32 !== undefined) {
-        params.sampleFormatInp = f32;
-        params.sampleFormatOut = f32;
-    }
-}
-
-function enableAllRxProtocols(instance) {
-    if (!ggwave || instance == null) return;
-    const toggle = ggwave.rxToggleProtocol || ggwave.toggleRxProtocol;
-    if (typeof toggle !== 'function' || !protocolsMap) return;
-    Object.keys(protocolsMap).forEach((key) => {
-        try {
-            toggle(instance, protocolsMap[key], true);
-        } catch (err) {}
-    });
-}
-
-function createGgwaveInstance() {
-    ggwaveParameters = ggwave.getDefaultParameters();
-    applyGgwaveAudioParams(ggwaveParameters);
-    const instance = ggwave.init(ggwaveParameters);
-    enableAllRxProtocols(instance);
-    return instance;
-}
-
 function initAudio() {
-    if (!ggwave) return;
     if (!audioContext) {
         window.AudioContext = window.AudioContext || window.webkitAudioContext;
         audioContext = new AudioContext({ sampleRate: 48000 });
-        ggwaveInstance = createGgwaveInstance();
-        ggwaveInstanceShifted = createGgwaveInstance();
+        ggwaveParameters = ggwave.getDefaultParameters();
+        ggwaveParameters.sampleRateInp = audioContext.sampleRate;
+        ggwaveParameters.sampleRateOut = audioContext.sampleRate;
+        ggwaveInstance = ggwave.init(ggwaveParameters);
+        ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
         console.log(`Audio Context initialized. Sample Rate: ${audioContext.sampleRate} Hz`);
     }
 }
 
-// Audio capture toggle (Listening toggle)
 function toggleAudioCapture() {
     initAudio();
-
     if (isCapturing) {
         stopAudioCapture();
     } else {
@@ -394,201 +345,7 @@ function isMicPermissionError(err) {
     return !!(err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'));
 }
 
-async function queryMicPermission() {
-    try {
-        if (navigator.permissions && navigator.permissions.query) {
-            const status = await navigator.permissions.query({ name: 'microphone' });
-            return status.state;
-        }
-    } catch (err) {
-        // Safari / some WebViews don't implement microphone permission queries
-    }
-    return micAccessGranted ? 'granted' : 'unknown';
-}
-
-function requestMicrophone(constraints) {
-    return navigator.mediaDevices.getUserMedia(constraints);
-}
-
-function dispatchDecodedPayload(bytes) {
-    try {
-        let rawText = '';
-        if (typeof bytes === 'string') {
-            rawText = bytes;
-        } else if (bytes && bytes.length > 0) {
-            const copy = new Uint8Array(bytes.length);
-            for (let i = 0; i < bytes.length; i++) {
-                copy[i] = bytes[i] & 0xff;
-            }
-            rawText = new TextDecoder('utf-8').decode(copy);
-        }
-        if (!rawText) return;
-        rxDebug.lastPayload = rawText;
-        updateRxDebugUI();
-        console.log('Successfully decoded raw sonic payload:', rawText);
-        parseReceivedPacket(rawText).then((parsed) => {
-            appendMessage(parsed.sender, parsed.message, 'received', parsed.encrypted);
-            playReceivedChime();
-        }).catch((parseErr) => {
-            console.error('Parsing received packet failed:', parseErr);
-        });
-    } catch (decodeErr) {
-        console.error('Decoding text payload failed:', decodeErr);
-    }
-}
-
-function updateRxDebugUI() {
-    const levelVal = document.getElementById('rx-debug-level-val');
-    const levelBar = document.getElementById('rx-debug-level-bar');
-    const captureEl = document.getElementById('rx-debug-capture');
-    const hitsEl = document.getElementById('rx-debug-hits');
-    const payloadEl = document.getElementById('rx-debug-payload');
-    const pct = Math.min(100, Math.round(rxDebug.rms * 400));
-    if (levelVal) levelVal.textContent = pct + '%';
-    if (levelBar) levelBar.style.width = pct + '%';
-    if (captureEl) {
-        if (!isCapturing) {
-            captureEl.textContent = 'Idle';
-        } else {
-            const rate = audioContext ? Math.round(audioContext.sampleRate) : 0;
-            captureEl.textContent = rxDebug.buffersPerSec + '/s · ' + rxDebug.backend + ' · ' + rate + ' Hz';
-        }
-    }
-    if (hitsEl) hitsEl.textContent = String(rxDebug.hits);
-    if (payloadEl) payloadEl.textContent = rxDebug.lastPayload;
-}
-
-function startRxDebugTimer() {
-    if (rxDebugTimer) clearInterval(rxDebugTimer);
-    rxDebug.windowBuffers = 0;
-    rxDebugTimer = setInterval(() => {
-        rxDebug.buffersPerSec = rxDebug.windowBuffers;
-        rxDebug.windowBuffers = 0;
-        updateRxDebugUI();
-    }, 1000);
-    updateRxDebugUI();
-}
-
-function stopRxDebugTimer() {
-    if (rxDebugTimer) {
-        clearInterval(rxDebugTimer);
-        rxDebugTimer = null;
-    }
-    rxDebug.backend = 'idle';
-    rxDebug.buffersPerSec = 0;
-    rxDebug.rms = 0;
-    updateRxDebugUI();
-}
-
-function feedCaptureSamples(input) {
-    if (!input || !input.length) return;
-
-    const samples = new Float32Array(input.length);
-    let sum = 0;
-    const gain = rxGain;
-    for (let i = 0; i < input.length; i++) {
-        const v = input[i] * gain;
-        samples[i] = v;
-        sum += v * v;
-    }
-    rxDebug.rms = Math.sqrt(sum / input.length);
-    rxDebug.buffers += 1;
-    rxDebug.windowBuffers += 1;
-
-    const skipDecode = isTransmitting && !rxDuringTx;
-    if (skipDecode || !ggwave || !ggwaveInstance) {
-        updateRxDebugUI();
-        return;
-    }
-
-    const decodedBytes = ggwave.decode(
-        ggwaveInstance,
-        convertTypedArray(samples, Int8Array)
-    );
-    if (decodedBytes && decodedBytes.length > 0) {
-        rxDebug.hits += 1;
-        dispatchDecodedPayload(decodedBytes);
-    }
-    updateRxDebugUI();
-}
-
-function keepCaptureNodeAlive(node) {
-    recorderDummyDest = audioContext.createMediaStreamDestination();
-    node.connect(recorderDummyDest);
-    // A fully muted node can be skipped by the audio graph. A tiny tap
-    // keeps ScriptProcessor/AudioWorklet running without speaker echo.
-    recorderSilentGain = audioContext.createGain();
-    recorderSilentGain.gain.value = 0.001;
-    node.connect(recorderSilentGain);
-    recorderSilentGain.connect(audioContext.destination);
-}
-
-async function startCaptureProcessor(sourceNode) {
-    if (!audioContext.audioWorklet) {
-        throw new Error('AudioWorklet is not available');
-    }
-    const workletSource = `
-        class CaptureProcessor extends AudioWorkletProcessor {
-            constructor() {
-                super();
-                this._buf = new Float32Array(1024);
-                this._off = 0;
-            }
-            process(inputs) {
-                const channel = (inputs[0] && inputs[0][0]) || null;
-                const n = channel ? channel.length : 128;
-                for (let i = 0; i < n; i++) {
-                    this._buf[this._off++] = channel ? channel[i] : 0;
-                    if (this._off >= this._buf.length) {
-                        this.port.postMessage(this._buf.slice());
-                        this._off = 0;
-                    }
-                }
-                return true;
-            }
-        }
-        registerProcessor('wavest-capture', CaptureProcessor);
-    `;
-    if (!captureWorkletLoaded) {
-        const blob = new Blob([workletSource], { type: 'application/javascript' });
-        const url = URL.createObjectURL(blob);
-        try {
-            await audioContext.audioWorklet.addModule(url);
-            captureWorkletLoaded = true;
-        } finally {
-            URL.revokeObjectURL(url);
-        }
-    }
-    captureWorkletNode = new AudioWorkletNode(audioContext, 'wavest-capture', {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [1]
-    });
-    captureWorkletNode.port.onmessage = (event) => {
-        feedCaptureSamples(event.data);
-    };
-    sourceNode.connect(captureWorkletNode);
-    keepCaptureNodeAlive(captureWorkletNode);
-    rxDebug.backend = 'AudioWorklet';
-}
-
-function startScriptProcessorCapture(sourceNode) {
-    const bufferSize = 1024;
-    if (audioContext.createScriptProcessor) {
-        recorderNode = audioContext.createScriptProcessor(bufferSize, 1, 1);
-    } else {
-        recorderNode = audioContext.createJavaScriptNode(bufferSize, 1, 1);
-    }
-    recorderNode.onaudioprocess = (e) => {
-        feedCaptureSamples(e.inputBuffer.getChannelData(0));
-    };
-    sourceNode.connect(recorderNode);
-    keepCaptureNodeAlive(recorderNode);
-    rxDebug.backend = 'ScriptProcessor';
-}
-
-// Start microphone pipeline
-async function startAudioCapture() {
+function startAudioCapture() {
     if (!audioContext || !ggwave) return;
 
     if (audioContext.state === 'suspended') {
@@ -597,107 +354,96 @@ async function startAudioCapture() {
 
     const constraints = {
         audio: {
-            channelCount: 1,
             echoCancellation: false,
             autoGainControl: false,
-            noiseSuppression: false,
-            voiceIsolation: false,
-            googEchoCancellation: false,
-            googAutoGainControl: false,
-            googNoiseSuppression: false,
-            googHighpassFilter: false
+            noiseSuppression: false
         }
     };
 
-    const permissionState = await queryMicPermission();
-
-    const onStream = (stream) => {
+    navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
         micAccessGranted = true;
         localStorage.setItem('wavest_mic_granted', '1');
         microphoneStream = stream;
         mediaStreamNode = audioContext.createMediaStreamSource(stream);
-        
+
         analyserNode = audioContext.createAnalyser();
         mediaStreamNode.connect(analyserNode);
 
-        // Fresh decoder so leftover TX state cannot block RX
-        try {
-            ggwaveInstance = createGgwaveInstance();
-        } catch (err) {
-            console.error('Failed to recreate ggwave RX instance:', err);
+        const bufferSize = 1024;
+        if (audioContext.createScriptProcessor) {
+            recorderNode = audioContext.createScriptProcessor(bufferSize, 1, 1);
+        } else {
+            recorderNode = audioContext.createJavaScriptNode(bufferSize, 1, 1);
         }
 
-        const onGraphReady = () => {
-            isCapturing = true;
-            captureToggleBtn.classList.add('active');
-            captureToggleBtn.setAttribute('aria-pressed', 'true');
-            captureToggleBtn.setAttribute('aria-label', 'Stop listening');
-            if (statusIndicator) statusIndicator.classList.add('listening');
-            rxStateIcon.innerText = '🟢';
-            rxStateText.innerText = 'Listening for incoming audio data...';
-            updateListenState('Listening');
-            startRxDebugTimer();
+        const handleDecodedBytes = async (bytes) => {
+            try {
+                const rawText = new TextDecoder('utf-8').decode(bytes);
+                console.log('Successfully decoded raw sonic payload:', rawText);
+                const parsed = await parseReceivedPacket(rawText);
+                appendMessage(parsed.sender, parsed.message, 'received', parsed.encrypted);
+                playReceivedChime();
+            } catch (decodeErr) {
+                console.error('Decoding text payload failed:', decodeErr);
+            }
         };
 
-        try {
-            startScriptProcessorCapture(mediaStreamNode);
-            onGraphReady();
-        } catch (err) {
-            console.error('ScriptProcessor capture failed, trying AudioWorklet:', err);
-            startCaptureProcessor(mediaStreamNode).then(onGraphReady).catch((workletErr) => {
-                console.error('Audio capture processor failed:', workletErr);
-                rxStateText.innerText = 'Could not start audio capture.';
-            });
-        }
-    };
+        let isProcessingAudio = false;
+        recorderNode.onaudioprocess = async (e) => {
+            if (isTransmitting || isProcessingAudio) return;
 
-    const onMicError = async (err) => {
-        const alreadyAllowed = permissionState === 'granted' || micAccessGranted;
-        if (alreadyAllowed) {
+            const channelDataCopy = new Float32Array(e.inputBuffer.getChannelData(0));
+            isProcessingAudio = true;
             try {
-                const stream = await requestMicrophone(constraints);
-                onStream(stream);
-                return;
-            } catch (retryErr) {
-                console.error('Microphone capture retry failed:', retryErr);
-                rxStateIcon.innerText = '❌';
-                rxStateText.innerText = 'Microphone is busy. Try again.';
-                return;
-            }
-        }
+                if (rxGain !== 1.0) {
+                    for (let i = 0; i < channelDataCopy.length; i++) {
+                        channelDataCopy[i] *= rxGain;
+                    }
+                }
 
+                const samplesInt8 = convertTypedArray(channelDataCopy, Int8Array);
+                const decodedBytes = ggwave.decode(ggwaveInstance, samplesInt8);
+                if (decodedBytes && decodedBytes.length > 0) {
+                    await handleDecodedBytes(decodedBytes);
+                } else {
+                    const shiftFactor = 1.0867;
+                    const resampled = resampleBuffer(channelDataCopy, shiftFactor);
+                    const resampledInt8 = convertTypedArray(resampled, Int8Array);
+                    const decodedBytesShifted = ggwave.decode(ggwaveInstanceShifted, resampledInt8);
+                    if (decodedBytesShifted && decodedBytesShifted.length > 0) {
+                        await handleDecodedBytes(decodedBytesShifted);
+                    }
+                }
+            } finally {
+                isProcessingAudio = false;
+            }
+        };
+
+        mediaStreamNode.connect(recorderNode);
+        recorderNode.connect(audioContext.destination);
+
+        isCapturing = true;
+        captureToggleBtn.classList.add('active');
+        captureToggleBtn.setAttribute('aria-pressed', 'true');
+        captureToggleBtn.setAttribute('aria-label', 'Stop listening');
+        if (statusIndicator) statusIndicator.classList.add('listening');
+        rxStateIcon.innerText = '🟢';
+        rxStateText.innerText = 'Listening for incoming audio data...';
+        updateListenState('Listening');
+    }).catch((err) => {
         console.error('Microphone capture stream failed:', err);
         rxStateIcon.innerText = '❌';
-        if (isMicPermissionError(err)) {
-            rxStateText.innerText = 'Permission denied. Mic is unavailable.';
+        rxStateText.innerText = 'Permission denied. Mic is unavailable.';
+        if (isMicPermissionError(err) && !micAccessGranted) {
             showToast('Microphone access is required to listen.', true);
-        } else {
-            rxStateText.innerText = 'Could not start the microphone.';
         }
-    };
-
-    requestMicrophone(constraints).then(onStream).catch(onMicError);
+    });
 }
 
-// Stop microphone capture
 function stopAudioCapture() {
-    if (captureWorkletNode) {
-        try { captureWorkletNode.port.onmessage = null; } catch (err) {}
-        captureWorkletNode.disconnect();
-        captureWorkletNode = null;
-    }
     if (recorderNode) {
-        recorderNode.onaudioprocess = null;
         recorderNode.disconnect();
         recorderNode = null;
-    }
-    if (recorderSilentGain) {
-        recorderSilentGain.disconnect();
-        recorderSilentGain = null;
-    }
-    if (recorderDummyDest) {
-        recorderDummyDest.disconnect();
-        recorderDummyDest = null;
     }
     if (mediaStreamNode) {
         mediaStreamNode.disconnect();
@@ -720,9 +466,6 @@ function stopAudioCapture() {
     rxStateIcon.innerText = '🎤';
     rxStateText.innerText = 'Audio capture paused. Tap the mic to listen.';
     updateListenState(engineStatusLabel && engineStatusLabel.classList.contains('ready') ? 'Ready' : 'Paused');
-    stopRxDebugTimer();
-    
-    // Clear visualization traces
     resizeCanvases();
 }
 
@@ -797,6 +540,8 @@ async function transmitMessage() {
     playTransmissionFeedback(() => {
         try {
             // Encode payload to waveform floats using the selected protocol ID
+            const val = parseInt(protocolSelect.value, 10);
+            const isInaudible = (val >= 6 && val <= 8);
             const activeProto = getActiveProtocol();
             
             const waveformBuffer = ggwave.encode(
@@ -811,7 +556,7 @@ async function transmitMessage() {
                 const floatArray = convertTypedArray(waveformBuffer, Float32Array);
                 
                 // If protocol is inaudible, shift sample rate up by 1.0867
-                const playSampleRate = audioContext.sampleRate;
+                const playSampleRate = isInaudible ? Math.round(audioContext.sampleRate * 1.0867) : audioContext.sampleRate;
                 
                 // Create buffer source
                 const playBuffer = audioContext.createBuffer(1, floatArray.length, playSampleRate);
@@ -1259,7 +1004,8 @@ function getActiveProtocol() {
     if (currentProtocolId) return currentProtocolId;
     if (!protocolsMap) return null;
     const val = protocolSelect ? parseInt(protocolSelect.value, 10) : 5;
-    return protocolsMap[val] || protocolsMap[5] || null;
+    const mappedVal = (val >= 6 && val <= 8) ? (val - 3) : val;
+    return protocolsMap[mappedVal] || protocolsMap[5] || null;
 }
 
 function updateListenState(text) {
@@ -1317,6 +1063,5 @@ function applyTheme(theme, persist) {
     const colors = { classic: '#f9f9f9', midnight: '#000000', indigo: '#f2f2f7' };
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', colors[next]);
-
     requestAnimationFrame(resizeCanvases);
 }

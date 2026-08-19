@@ -206,21 +206,21 @@ body {
 
 .nav-avatar {
     position: relative;
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--glass-tint);
     color: var(--text);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 3px;
+    margin-bottom: 5px;
     box-shadow: inset 0 0.5px 0 var(--glass-highlight);
 }
 
 .nav-avatar svg {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
 }
 
 .status-dot {
@@ -248,15 +248,15 @@ body {
 }
 
 .nav-identity h1 {
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 600;
-    letter-spacing: -0.2px;
+    letter-spacing: -0.3px;
     line-height: 1.15;
 }
 
 .nav-subtitle {
-    margin-top: 1px;
-    font-size: 11px;
+    margin-top: 2px;
+    font-size: 13px;
     font-weight: 400;
     color: var(--text-secondary);
     letter-spacing: -0.08px;
@@ -325,8 +325,8 @@ body {
     z-index: 1;
     opacity: 0;
     transition: opacity 0.45s ease;
-    -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%);
-    mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 52%, transparent 100%);
+    mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 52%, transparent 100%);
 }
 
 .send-viz.active {
@@ -344,7 +344,7 @@ body {
 
 .chat-container::before {
     top: 0;
-    height: 118px;
+    height: 136px;
     z-index: 3;
     background: linear-gradient(to bottom, var(--edge-fade), transparent);
 }
@@ -364,7 +364,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: calc(env(safe-area-inset-top, 20px) + 118px) 14px calc(env(safe-area-inset-bottom, 10px) + 112px);
+    padding: calc(env(safe-area-inset-top, 20px) + 136px) 14px calc(env(safe-area-inset-bottom, 10px) + 112px);
 }
 
 .message {

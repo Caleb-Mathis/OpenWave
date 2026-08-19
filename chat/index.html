@@ -8,7 +8,6 @@
     <meta name="theme-color" content="#000000">
     <title>Wavest</title>
     <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
     <div class="app-container">
@@ -108,7 +107,7 @@
                             </label>
                         </div>
                     </div>
-                    <p class="ios-footer">Audible protocols are more robust in noisy rooms. Ultrasound (18 kHz+) is silent to most people, but can be less reliable in some environments.</p>
+                    <p class="ios-footer">Audible protocols are more robust in noisy rooms. Ultrasound (18 kHz+) is silent, but can be less reliable.</p>
                 </div>
 
                 <div class="ios-group">
@@ -144,36 +143,10 @@
                 <div class="ios-group">
                     <p class="ios-caption">Diagnostics</p>
                     <div class="ios-inset">
-                        <div class="ios-row">
-                            <span>Mic level</span>
-                            <span id="rx-debug-level-val" class="row-value">0%</span>
-                        </div>
-                        <div class="rx-meter" aria-hidden="true">
-                            <div id="rx-debug-level-bar" class="rx-meter-bar"></div>
-                        </div>
-                        <div class="ios-row">
-                            <span>Capture</span>
-                            <span id="rx-debug-capture" class="row-value">Idle</span>
-                        </div>
-                        <div class="ios-row">
-                            <span>Decode hits</span>
-                            <span id="rx-debug-hits" class="row-value">0</span>
-                        </div>
-                        <div class="ios-row stack">
-                            <span>Last payload</span>
-                            <p id="rx-debug-payload" class="engine-detail">—</p>
-                        </div>
-                        <div class="ios-row">
-                            <label for="rx-during-tx-toggle">Decode while sending</label>
-                            <label class="ios-switch">
-                                <input type="checkbox" id="rx-during-tx-toggle">
-                                <span class="ios-switch-track"></span>
-                            </label>
-                        </div>
                         <button id="loopback-test-btn" class="action-btn" type="button">Run Loopback Self-Test</button>
                         <div id="test-result" class="test-result"></div>
                     </div>
-                    <p class="ios-footer">Loopback tests encode→decode in memory, with no speaker or mic. If that passes, the engine is fine. Watch Mic level while a tone plays: if it stays at 0%, the mic isn’t hearing the signal. If it jumps but Decode hits stay 0, audio is arriving and demodulation is failing. A single phone ignores its own send unless Decode while sending is on.</p>
+                    <p class="ios-footer">Generates a local signal to verify the WebAssembly engine and audio loopback.</p>
                 </div>
 
                 <div class="ios-group">
