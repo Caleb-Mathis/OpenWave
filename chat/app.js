@@ -42,7 +42,7 @@ const rxStateText = document.getElementById('rx-state-text');
 const captureToggleBtn = document.getElementById('capture-toggle-btn');
 const navSubtitle = document.getElementById('nav-subtitle');
 const protocolToggleBtn = document.getElementById('protocol-toggle-btn');
-const protocolBandGroup = document.getElementById('protocol-band');
+const ultrasoundToggle = document.getElementById('ultrasound-toggle');
 const protocolRateRange = document.getElementById('protocol-rate');
 const protocolRateVal = document.getElementById('protocol-rate-val');
 const chatThread = document.getElementById('chat-thread');
@@ -1365,9 +1365,9 @@ function bindPressFeedback(el) {
 }
 
 function bindProtocolSettings() {
-    if (protocolBandGroup) {
-        protocolBandGroup.querySelectorAll('[data-band]').forEach((btn) => {
-            btn.addEventListener('click', () => setProtocolBand(btn.getAttribute('data-band')));
+    if (ultrasoundToggle) {
+        ultrasoundToggle.addEventListener('change', (e) => {
+            setProtocolBand(e.target.checked ? 'ultrasound' : 'audible');
         });
     }
 
@@ -1399,12 +1399,8 @@ function setProtocolBand(band) {
 function applyProtocol({ persist = true, reinit = true } = {}) {
     currentProtocolId = getActiveProtocol();
 
-    if (protocolBandGroup) {
-        protocolBandGroup.querySelectorAll('[data-band]').forEach((btn) => {
-            const selected = btn.getAttribute('data-band') === protocolBand;
-            btn.classList.toggle('is-selected', selected);
-            btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
-        });
+    if (ultrasoundToggle) {
+        ultrasoundToggle.checked = protocolBand === 'ultrasound';
     }
 
     if (protocolRateRange && String(protocolRateRange.value) !== String(protocolRate)) {

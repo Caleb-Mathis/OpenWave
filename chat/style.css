@@ -895,37 +895,6 @@ html.layout-debug-on .composer::after {
     background: #fff;
 }
 
-.segmented {
-    display: inline-flex;
-    flex-shrink: 0;
-    background: var(--fill);
-    border-radius: 9px;
-    padding: 2px;
-    gap: 0;
-}
-
-.segmented-btn {
-    border: none;
-    background: transparent;
-    color: var(--text);
-    font: 600 13px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    letter-spacing: -0.08px;
-    padding: 5px 10px;
-    border-radius: 7px;
-    cursor: pointer;
-    min-width: 0;
-    white-space: nowrap;
-}
-
-.segmented-btn.is-selected {
-    background: var(--bg-elevated);
-    box-shadow: 0 0.5px 2px rgba(0, 0, 0, 0.18);
-}
-
-.segmented-btn:active:not(.is-selected) {
-    opacity: 0.7;
-}
-
 .row-value {
     color: var(--text-secondary);
     font-size: 17px;

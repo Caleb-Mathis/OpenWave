@@ -97,11 +97,11 @@
                     <p class="ios-caption">Acoustic</p>
                     <div class="ios-inset">
                         <div class="ios-row">
-                            <span>Protocol</span>
-                            <div id="protocol-band" class="segmented" role="group" aria-label="Protocol">
-                                <button type="button" class="segmented-btn" data-band="audible">Audible</button>
-                                <button type="button" class="segmented-btn is-selected" data-band="ultrasound" aria-pressed="true">Ultrasound</button>
-                            </div>
+                            <label for="ultrasound-toggle">Ultrasound</label>
+                            <label class="ios-switch">
+                                <input type="checkbox" id="ultrasound-toggle" checked>
+                                <span class="ios-switch-track"></span>
+                            </label>
                         </div>
                         <div class="ios-row stack">
                             <div class="ios-row-main">
@@ -132,7 +132,7 @@
                             </label>
                         </div>
                     </div>
-                    <p class="ios-footer">Audible is more robust in noisy rooms. Ultrasound (18 kHz+) is near-silent, but may be less reliable in some environments. Rate controls how fast each message is sent. Slower is more reliable.</p>
+                    <p class="ios-footer">Ultrasound (18 kHz+) is near-silent, but may be less reliable in noisy environments. Disabling ultrasound switches to a more robust, audible protocal. Rate controls how fast each message is sent. Slower is more reliable.</p>
                 </div>
 
                 <div class="ios-group">
