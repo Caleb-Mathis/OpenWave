@@ -140,7 +140,7 @@ body {
     position: fixed;
     inset: 0;
     width: 100%;
-    height: auto;
+    height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
 }
@@ -159,6 +159,55 @@ body {
 ::-webkit-scrollbar-thumb {
     background: var(--fill-strong);
     border-radius: 99px;
+}
+
+.layout-debug {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: calc(env(safe-area-inset-top, 20px) + 118px);
+    z-index: 200;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.78);
+    color: #7dff9a;
+    font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    pointer-events: none;
+    border: 1px solid rgba(125, 255, 154, 0.35);
+}
+
+html.layout-debug-on .app-container {
+    outline: 3px solid #ff2d55;
+    outline-offset: -3px;
+}
+
+html.layout-debug-on .app-container::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 6px;
+    background: #ff2d55;
+    z-index: 250;
+    pointer-events: none;
+}
+
+html.layout-debug-on .composer {
+    outline: 3px solid #30d158;
+    outline-offset: -3px;
+}
+
+html.layout-debug-on .composer::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: #30d158;
+    pointer-events: none;
 }
 
 .visually-hidden {
@@ -180,11 +229,12 @@ body {
     position: fixed;
     left: 50%;
     top: 0;
+    right: auto;
     bottom: 0;
     transform: translateX(-50%);
     width: 100%;
     max-width: 430px;
-    height: auto;
+    height: 100%;
     background:
         radial-gradient(120% 70% at 50% 0%, rgba(90, 140, 255, 0.08), transparent 52%),
         var(--bg);
@@ -1141,11 +1191,19 @@ input[type="range"]::-moz-range-thumb {
 }
 
 @media (display-mode: standalone), (display-mode: fullscreen) {
-    :root {
-        --composer-pad-bottom: max(34px, env(safe-area-inset-bottom, 0px));
+    html,
+    body,
+    .app-container {
+        height: 100%;
+        min-height: 100%;
+        min-height: -webkit-fill-available;
     }
 }
 
-html.standalone {
-    --composer-pad-bottom: max(34px, env(safe-area-inset-bottom, 0px));
+html.standalone,
+html.standalone body,
+html.standalone .app-container {
+    height: 100%;
+    min-height: 100%;
+    min-height: -webkit-fill-available;
 }

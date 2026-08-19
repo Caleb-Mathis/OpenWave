@@ -79,6 +79,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     applyTheme('midnight', false);
     setupViewportLock();
+    setupLayoutDebug();
     registerServiceWorker();
     setEngineStatus('init', 'Starting ggwave…');
 
@@ -219,20 +220,23 @@ function setupViewportLock() {
         }
 
         const typing = isTextField(document.activeElement);
-        let inset = measuredInset();
+        let inset = 0;
 
-        if (typing && inset < 80) {
-            const hinted = Number(sessionStorage.getItem(HINT_KEY) || 0);
-            if (lastInset > 80) inset = lastInset;
-            else if (hinted > 80) inset = hinted;
+        if (typing) {
+            inset = measuredInset();
+            if (inset < 80) {
+                const hinted = Number(sessionStorage.getItem(HINT_KEY) || 0);
+                if (lastInset > 80) inset = lastInset;
+                else if (hinted > 80) inset = hinted;
+            }
+            if (inset > 80) {
+                sessionStorage.setItem(HINT_KEY, String(Math.round(inset)));
+            } else {
+                inset = 0;
+            }
         }
-        if (!typing && inset < 80) inset = 0;
 
-        if (inset > 80) {
-            sessionStorage.setItem(HINT_KEY, String(Math.round(inset)));
-        }
-
-        const keyboardOpen = inset > 80 || (typing && document.body.classList.contains('keyboard-open'));
+        const keyboardOpen = typing && inset > 80;
         document.body.classList.toggle('keyboard-open', keyboardOpen);
 
         if (Math.abs(inset - lastInset) > 0.5) {
@@ -320,6 +324,91 @@ function setupViewportLock() {
         const scrollable = event.target.closest('.chat-messages, .sidebar-content, textarea');
         if (!scrollable) event.preventDefault();
     }, { passive: false });
+}
+
+function probeCssHeight(value) {
+    const probe = document.createElement('div');
+    probe.style.cssText = `position:fixed;left:0;top:0;width:0;height:${value};visibility:hidden;pointer-events:none;`;
+    document.documentElement.appendChild(probe);
+    const height = probe.getBoundingClientRect().height;
+    probe.remove();
+    return Math.round(height || 0);
+}
+
+function readSafeInset(side) {
+    const probe = document.createElement('div');
+    probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;padding-${side}:env(safe-area-inset-${side}, 0px);`;
+    document.documentElement.appendChild(probe);
+    const key = `padding${side.charAt(0).toUpperCase()}${side.slice(1)}`;
+    const value = parseFloat(getComputedStyle(probe)[key]) || 0;
+    probe.remove();
+    return Math.round(value);
+}
+
+function setupLayoutDebug() {
+    const panel = document.getElementById('layout-debug');
+    const title = document.querySelector('.nav-titles h1');
+    if (!panel) return;
+
+    const params = new URLSearchParams(window.location.search);
+    let enabled = params.get('debug') === '1' || sessionStorage.getItem('wavest_layout_debug') === '1';
+    let tapCount = 0;
+    let tapTimer = 0;
+
+    const paint = () => {
+        if (!enabled) return;
+        const vv = window.visualViewport;
+        const app = document.querySelector('.app-container');
+        const composer = document.querySelector('.composer');
+        const appBox = app ? app.getBoundingClientRect() : null;
+        const composerBox = composer ? composer.getBoundingClientRect() : null;
+        const cs = composer ? getComputedStyle(composer) : null;
+        const lines = [
+            `standalone ${isStandaloneDisplay() ? 'yes' : 'no'}  nav.standalone ${window.navigator.standalone ? 'yes' : 'no'}`,
+            `inner ${window.innerWidth}x${window.innerHeight}  client ${document.documentElement.clientWidth}x${document.documentElement.clientHeight}`,
+            `outer ${window.outerWidth}x${window.outerHeight}  screen ${window.screen.width}x${window.screen.height}`,
+            `vv ${vv ? `${Math.round(vv.width)}x${Math.round(vv.height)} top=${Math.round(vv.offsetTop)}` : 'n/a'}`,
+            `svh ${probeCssHeight('100svh')}  dvh ${probeCssHeight('100dvh')}  lvh ${probeCssHeight('100lvh')}`,
+            `fill ${probeCssHeight('-webkit-fill-available')}`,
+            `safe t${readSafeInset('top')} r${readSafeInset('right')} b${readSafeInset('bottom')} l${readSafeInset('left')}`,
+            `kb-js ${getComputedStyle(document.documentElement).getPropertyValue('--kb-js').trim() || '0'}`,
+            `composer pad ${cs ? cs.paddingBottom : '?'}  bottom ${cs ? cs.bottom : '?'}`,
+            `app rect y=${appBox ? Math.round(appBox.top) : '?'} h=${appBox ? Math.round(appBox.height) : '?'} bottom=${appBox ? Math.round(appBox.bottom) : '?'}`,
+            `field rect y=${composerBox ? Math.round(composerBox.top) : '?'} h=${composerBox ? Math.round(composerBox.height) : '?'} bottom=${composerBox ? Math.round(composerBox.bottom) : '?'}`,
+            `gap under field ${composerBox && appBox ? Math.round(appBox.bottom - composerBox.bottom) : '?'}px`,
+            `gap under app ${appBox ? Math.round(window.innerHeight - appBox.bottom) : '?'}px`,
+            `triple-tap Wavest to hide`
+        ];
+        panel.textContent = lines.join('\n');
+    };
+
+    const setEnabled = (next) => {
+        enabled = next;
+        sessionStorage.setItem('wavest_layout_debug', next ? '1' : '0');
+        document.documentElement.classList.toggle('layout-debug-on', next);
+        panel.hidden = !next;
+        if (next) paint();
+    };
+
+    if (title) {
+        title.addEventListener('click', () => {
+            tapCount += 1;
+            clearTimeout(tapTimer);
+            tapTimer = setTimeout(() => { tapCount = 0; }, 500);
+            if (tapCount >= 3) {
+                tapCount = 0;
+                setEnabled(!enabled);
+            }
+        });
+    }
+
+    setEnabled(enabled);
+    window.addEventListener('resize', paint);
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', paint);
+        window.visualViewport.addEventListener('scroll', paint);
+    }
+    setInterval(() => { if (enabled) paint(); }, 500);
 }
 
 function registerServiceWorker() {

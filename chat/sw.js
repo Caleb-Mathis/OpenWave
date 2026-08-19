@@ -1,4 +1,4 @@
-const CACHE = 'wavest-offline-v3';
+const CACHE = 'wavest-offline-v7';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());
