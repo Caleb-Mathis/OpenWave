@@ -1295,7 +1295,7 @@ function renderContactList() {
         return;
     }
     list.hidden = false;
-    if (empty) empty.textContent = 'Tap a contact to edit or delete it.';
+    if (empty) empty.textContent = '';
     names.forEach((name) => {
         const row = document.createElement('button');
         row.type = 'button';

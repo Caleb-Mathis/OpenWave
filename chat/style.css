@@ -314,6 +314,14 @@ html.layout-debug-on .composer::after {
     box-shadow: inset 0 0.5px 0 var(--glass-highlight);
 }
 
+[data-theme="classic"] .nav-avatar,
+[data-theme="indigo"] .nav-avatar {
+    backdrop-filter: saturate(190%) blur(28px);
+    -webkit-backdrop-filter: saturate(190%) blur(28px);
+    border: 0.5px solid var(--glass-stroke);
+    box-shadow: var(--glass-shadow);
+}
+
 .nav-avatar svg {
     width: 30px;
     height: 30px;

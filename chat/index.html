@@ -110,7 +110,7 @@
                                 </button>
                                 <button type="button" class="ios-row settings-link" data-push="appearance">
                                     <span class="settings-link-main">
-                                        <span class="settings-link-icon" style="background:#8e8e93">
+                                        <span class="settings-link-icon" style="background:#000000">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" /></svg>
                                         </span>
                                         Appearance
@@ -121,10 +121,10 @@
                                 </button>
                                 <button type="button" class="ios-row settings-link" data-push="identity">
                                     <span class="settings-link-main">
-                                        <span class="settings-link-icon" style="background:#007aff">
+                                        <span class="settings-link-icon" style="background:#5856d6">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
                                         </span>
-                                        Callsigns &amp; Encryption
+                                        Identity &amp; Encryption
                                     </span>
                                     <span class="settings-chevron" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
@@ -207,7 +207,7 @@
                         <button type="button" class="icon-btn glass-btn back-btn" data-pop aria-label="Back">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                         </button>
-                        <h3>Callsigns &amp; Encryption</h3>
+                        <h3>Identity &amp; Encryption</h3>
                         <span class="header-spacer"></span>
                     </div>
                     <div class="sidebar-content">
@@ -215,7 +215,7 @@
                             <p class="ios-caption">You</p>
                             <div class="ios-inset">
                                 <label class="ios-row stack" for="callsign-input">
-                                    <span>Callsign</span>
+                                    <span>Username</span>
                                     <input type="text" id="callsign-input" placeholder="OpenWave User" value="OpenWave User">
                                 </label>
                             </div>
@@ -235,7 +235,7 @@
                                     <input type="text" id="passkey-input" placeholder="Optional" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
                                 </label>
                             </div>
-                            <p class="ios-footer">Keep your passkey saved and use the toggle to send in the clear. Encrypted bubbles appear purple.</p>
+                            <p class="ios-footer">Add a passkey to send encrypted messages.</p>
                         </div>
                         <div class="ios-group">
                             <p class="ios-caption">Contacts</p>
@@ -243,7 +243,7 @@
                             <div class="ios-inset" id="add-contact-wrap">
                                 <button type="button" class="action-btn" id="add-contact-btn">Add Contact</button>
                             </div>
-                            <p class="ios-footer" id="contacts-empty">Add a friend’s callsign and key to decrypt their messages.</p>
+                            <p class="ios-footer" id="contacts-empty">Add a friend’s username and key to decrypt their messages.</p>
                         </div>
                     </div>
                 </div>
@@ -260,7 +260,7 @@
                         <div class="ios-group">
                             <div class="ios-inset">
                                 <label class="ios-row stack" for="contact-callsign-input">
-                                    <span>Callsign</span>
+                                    <span>Username</span>
                                     <input type="text" id="contact-callsign-input" placeholder="Required" autocomplete="off">
                                 </label>
                                 <label class="ios-row stack" for="contact-key-input">
@@ -268,7 +268,7 @@
                                     <input type="text" id="contact-key-input" placeholder="Required" autocomplete="off">
                                 </label>
                             </div>
-                            <p class="ios-footer">Used to decrypt messages from this callsign.</p>
+                            <p class="ios-footer">Used to decrypt messages from this contact.</p>
                         </div>
                         <div class="ios-group" id="delete-contact-wrap" hidden>
                             <div class="ios-inset">
@@ -305,7 +305,7 @@
                             </div>
                         </div>
                         <div class="ios-group">
-                            <p class="ios-caption">Sent Bubble Color</p>
+                            <p class="ios-caption">Bubble Color</p>
                             <div class="ios-inset">
                                 <label class="ios-row" for="color-sent">
                                     <span>Unencrypted</span>
@@ -319,7 +319,7 @@
                             <div class="ios-inset" style="margin-top:12px">
                                 <button type="button" class="action-btn" id="reset-bubble-colors-btn">Reset Bubble Colors</button>
                             </div>
-                            <p class="ios-footer">These colors apply to your sent bubbles, the send button, and the send spectrogram. Incoming messages stay the same.</p>
+                            <p class="ios-footer">These colors apply to your sent bubbles, the send button, and the spectrogram. Incoming messages stay the same.</p>
                         </div>
                     </div>
                 </div>
@@ -346,7 +346,7 @@
                         <div class="ios-group">
                             <p class="ios-caption">Diagnostics</p>
                             <div class="ios-inset">
-                                <button id="loopback-test-btn" class="action-btn" type="button">Run Loopback Self-Test</button>
+                                <button id="loopback-test-btn" class="action-btn" type="button">Run Loopback Test</button>
                                 <div id="test-result" class="test-result"></div>
                             </div>
                             <p class="ios-footer">Generates a local signal to verify the WebAssembly engine and audio loopback.</p>
