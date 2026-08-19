@@ -22,7 +22,8 @@ let soundFeedbackEnabled = true;
 let micAccessGranted = localStorage.getItem('wavest_mic_granted') === '1';
 
 // Secure Communication State
-let myCallsign = 'WavestUser';
+const DEFAULT_CALLSIGN = 'OpenWave User';
+let myCallsign = DEFAULT_CALLSIGN;
 let myPasskey = '';
 let contactKeys = {};
 
@@ -39,7 +40,7 @@ const chatMessages = document.getElementById('chat-messages');
 const rxStateIcon = document.getElementById('rx-state-icon');
 const rxStateText = document.getElementById('rx-state-text');
 const captureToggleBtn = document.getElementById('capture-toggle-btn');
-const activeProtocolLbl = document.getElementById('active-protocol-lbl');
+const navSubtitle = document.getElementById('nav-subtitle');
 const protocolToggleBtn = document.getElementById('protocol-toggle-btn');
 const protocolBandGroup = document.getElementById('protocol-band');
 const protocolRateRange = document.getElementById('protocol-rate');
@@ -49,6 +50,7 @@ const chatThread = document.getElementById('chat-thread');
 const RATE_NAMES = ['Normal', 'Fast', 'Fastest'];
 let protocolBand = 'ultrasound';
 let protocolRate = 2;
+let listenLabel = 'Ready';
 
 // Send spectrogram (decorative, transmit-only)
 const sendVizCanvas = document.getElementById('send-viz-canvas');
@@ -67,7 +69,6 @@ const soundFeedbackToggle = document.getElementById('sound-feedback-toggle');
 const loopbackTestBtn = document.getElementById('loopback-test-btn');
 const testResult = document.getElementById('test-result');
 const clearChatBtn = document.getElementById('clear-chat-btn');
-const navListenState = document.getElementById('nav-listen-state');
 const engineStatusLabel = document.getElementById('engine-status-label');
 const engineStatusDetail = document.getElementById('engine-status-detail');
 const appToast = document.getElementById('app-toast');
@@ -377,7 +378,7 @@ function setupLayoutDebug() {
             `field rect y=${composerBox ? Math.round(composerBox.top) : '?'} h=${composerBox ? Math.round(composerBox.height) : '?'} bottom=${composerBox ? Math.round(composerBox.bottom) : '?'}`,
             `gap under field ${composerBox && appBox ? Math.round(appBox.bottom - composerBox.bottom) : '?'}px`,
             `gap under app ${appBox ? Math.round(window.innerHeight - appBox.bottom) : '?'}px`,
-            `triple-tap Wavest to hide`
+            `triple-tap OpenWave to hide`
         ];
         panel.textContent = lines.join('\n');
     };
@@ -462,6 +463,8 @@ function setupUIEventListeners() {
     loadProtocolSettings();
     bindSecureSettingsListeners();
     bindProtocolSettings();
+
+    bindRangeFills();
 
     volumeRange.addEventListener('input', (e) => {
         txVolume = parseFloat(e.target.value) / 100;
@@ -1157,7 +1160,12 @@ function resampleBuffer(inputBuffer, factor) {
 
 // Load secure settings from localStorage
 function loadSecureSettings() {
-    myCallsign = localStorage.getItem('wavest_callsign') || 'WavestUser';
+    const savedCallsign = localStorage.getItem('wavest_callsign');
+    if (!savedCallsign || savedCallsign === 'WavestUser') {
+        myCallsign = DEFAULT_CALLSIGN;
+    } else {
+        myCallsign = savedCallsign;
+    }
     myPasskey = localStorage.getItem('wavest_passkey') || '';
     const contactsRaw = localStorage.getItem('wavest_contacts') || '';
     
@@ -1193,7 +1201,7 @@ function bindSecureSettingsListeners() {
 
     if (callsignInput) {
         const updateCallsign = (e) => {
-            myCallsign = e.target.value.trim() || 'WavestUser';
+            myCallsign = e.target.value.trim() || DEFAULT_CALLSIGN;
             localStorage.setItem('wavest_callsign', myCallsign);
         };
         callsignInput.addEventListener('input', updateCallsign);
@@ -1245,7 +1253,7 @@ function bindSecureSettingsListeners() {
             }
             const contactsInput = document.getElementById('contacts-input');
             if (contactsInput) {
-                contactsInput.value = 'WavestUser:jordan123';
+                contactsInput.value = `${DEFAULT_CALLSIGN}:jordan123`;
                 contactsInput.dispatchEvent(new Event('change'));
             }
             console.log('DEBUG: Encryption keys programmatically set.');
@@ -1276,6 +1284,43 @@ function protocolShortName() {
     return protocolBand === 'audible' ? 'Audible' : 'Ultrasound';
 }
 
+function navSubtitleText() {
+    return `${protocolShortName()} · ${listenLabel}`;
+}
+
+function makeSubtitleSpan(text, extraClass) {
+    const el = document.createElement('span');
+    el.className = extraClass ? `nav-subtitle-text ${extraClass}` : 'nav-subtitle-text';
+    el.textContent = text;
+    return el;
+}
+
+function setNavSubtitle({ animate = true } = {}) {
+    if (!navSubtitle) return;
+    const name = navSubtitleText();
+    let current = navSubtitle.querySelector('.nav-subtitle-text:not(.outgoing)');
+    if (!current) {
+        navSubtitle.replaceChildren(makeSubtitleSpan(name));
+        return;
+    }
+    if (current.textContent === name) return;
+    if (!animate) {
+        current.textContent = name;
+        return;
+    }
+
+    current.classList.add('outgoing');
+    const next = makeSubtitleSpan(name, 'incoming');
+    navSubtitle.appendChild(next);
+    requestAnimationFrame(() => {
+        current.classList.add('is-out');
+        next.classList.add('is-in');
+    });
+    const cleanup = () => current.remove();
+    current.addEventListener('transitionend', cleanup, { once: true });
+    setTimeout(cleanup, 420);
+}
+
 function getActiveProtocol() {
     if (!protocolsMap) return currentProtocolId;
     return protocolsMap[protocolIndex()] || protocolsMap[5] || currentProtocolId || null;
@@ -1289,6 +1334,24 @@ function loadProtocolSettings() {
         protocolRate = parseInt(savedRate, 10);
     }
     applyProtocol({ persist: false, reinit: false });
+}
+
+function paintRangeFill(el) {
+    if (!el) return;
+    const min = Number(el.min);
+    const max = Number(el.max);
+    const val = Number(el.value);
+    const lo = Number.isFinite(min) ? min : 0;
+    const hi = Number.isFinite(max) ? max : 100;
+    const pct = hi === lo ? 0 : ((val - lo) / (hi - lo)) * 100;
+    el.style.setProperty('--range-fill', `${pct}%`);
+}
+
+function bindRangeFills() {
+    document.querySelectorAll('input[type="range"]').forEach((el) => {
+        paintRangeFill(el);
+        el.addEventListener('input', () => paintRangeFill(el));
+    });
 }
 
 function bindPressFeedback(el) {
@@ -1346,10 +1409,11 @@ function applyProtocol({ persist = true, reinit = true } = {}) {
 
     if (protocolRateRange && String(protocolRateRange.value) !== String(protocolRate)) {
         protocolRateRange.value = String(protocolRate);
+        paintRangeFill(protocolRateRange);
     }
     if (protocolRateVal) protocolRateVal.textContent = RATE_NAMES[protocolRate] || 'Fastest';
 
-    if (activeProtocolLbl) activeProtocolLbl.innerText = protocolShortName();
+    setNavSubtitle({ animate: persist });
 
     if (protocolToggleBtn) {
         const ultrasound = protocolBand === 'ultrasound';
@@ -1375,7 +1439,8 @@ function applyProtocol({ persist = true, reinit = true } = {}) {
 }
 
 function updateListenState(text) {
-    if (navListenState) navListenState.textContent = text;
+    if (text) listenLabel = text;
+    setNavSubtitle({ animate: true });
 }
 
 function updateSendEnabled() {

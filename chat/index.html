@@ -6,11 +6,11 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="Wavest">
+    <meta name="apple-mobile-web-app-title" content="OpenWave">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#000000">
     <meta name="format-detection" content="telephone=no">
-    <title>Wavest</title>
+    <title>OpenWave</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -46,11 +46,9 @@
                 </svg>
             </button>
             <div class="nav-titles">
-                <h1>Wavest</h1>
-                <p class="nav-subtitle">
-                    <span id="active-protocol-lbl">Ultrasound</span>
-                    <span class="nav-sep">·</span>
-                    <span id="nav-listen-state">Ready</span>
+                <h1>OpenWave</h1>
+                <p id="nav-subtitle" class="nav-subtitle" aria-live="polite">
+                    <span class="nav-subtitle-text">Ultrasound · Ready</span>
                 </p>
                 <span id="status-text" class="visually-hidden">Initializing</span>
             </div>
@@ -134,7 +132,7 @@
                             </label>
                         </div>
                     </div>
-                    <p class="ios-footer">Audible is louder and holds up better in noisy rooms. Ultrasound (18 kHz+) is silent, but easier to miss. Rate is how fast each message is sent. Slower is more reliable. Faster is quicker, but easier to miss.</p>
+                    <p class="ios-footer">Audible is more robust in noisy rooms. Ultrasound (18 kHz+) is near-silent, but may be less reliable in some environments. Rate controls how fast each message is sent. Slower is more reliable.</p>
                 </div>
 
                 <div class="ios-group">
@@ -142,7 +140,7 @@
                     <div class="ios-inset">
                         <label class="ios-row stack" for="callsign-input">
                             <span>Callsign</span>
-                            <input type="text" id="callsign-input" placeholder="WavestUser" value="WavestUser">
+                            <input type="text" id="callsign-input" placeholder="OpenWave User" value="OpenWave User">
                         </label>
                         <label class="ios-row stack" for="passkey-input">
                             <span>Encryption Passkey</span>
@@ -183,8 +181,8 @@
                 </div>
 
                 <div class="settings-attribution">
-                    <p>Wavest v0.91 by Benn Jordan.</p>
-                    <p>Based on GGWave/Waver by Georgi Gerganov.</p>
+                    <p>OpenWave v1.0 by Caleb Mathis</p>
+                    <p>Built on Wavest by Benn Jordan & GGWave by Georgi Gerganov.</p>
                 </div>
             </div>
         </section>

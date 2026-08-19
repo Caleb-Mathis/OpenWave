@@ -1,6 +1,6 @@
 {
-  "name": "Wavest",
-  "short_name": "Wavest",
+  "name": "OpenWave",
+  "short_name": "OpenWave",
   "description": "Acoustic chat over audible and ultrasonic waves.",
   "start_url": "./",
   "scope": "./",
