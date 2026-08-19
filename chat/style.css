@@ -139,6 +139,7 @@ html {
     --kb-js: 0px;
     --kb-inset: var(--kb-js);
     --composer-pad-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    --composer-row-h: 42px;
 }
 
 html,
@@ -438,7 +439,7 @@ html.layout-debug-on .composer::after {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: calc(var(--composer-pad-bottom) + 56px + var(--kb-inset, 0px));
+    bottom: calc(var(--composer-pad-bottom) + var(--composer-row-h) + var(--kb-inset, 0px));
     width: 100%;
     height: 36%;
     max-height: 260px;
@@ -446,16 +447,12 @@ html.layout-debug-on .composer::after {
     z-index: 1;
     opacity: 0;
     transition: opacity 0.45s ease;
-    -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 52%, transparent 100%);
-    mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 52%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.45) 52%, transparent 100%);
+    mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.45) 52%, transparent 100%);
 }
 
 .send-viz.active {
     opacity: 1;
-}
-
-.keyboard-open .send-viz {
-    bottom: calc(64px + var(--kb-inset, 0px));
 }
 
 .chat-container::before,
