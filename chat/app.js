@@ -81,7 +81,8 @@ window.addEventListener('DOMContentLoaded', () => {
     resizeCanvases();
     window.addEventListener('resize', resizeCanvases);
 
-    applyTheme('midnight', false);
+    applyTheme(localStorage.getItem('wavest_theme') || 'midnight', false);
+    applyBubbleColors();
     setupViewportLock();
     setupLayoutDebug();
     registerServiceWorker();
@@ -444,6 +445,7 @@ function setupUIEventListeners() {
     captureToggleBtn.addEventListener('click', toggleAudioCapture);
 
     bindSettingsNavigation();
+    bindAppearanceSettings();
 
     if (messageInput) {
         messageInput.addEventListener('input', updateSendEnabled);
@@ -1368,17 +1370,30 @@ function pushSettingsPage(id) {
 
 function popSettingsPage() {
     if (settingsStack.length < 2) return;
-    settingsStack.pop();
+    const leaving = settingsStack.pop();
+    const leaveEl = document.querySelector(`.settings-page[data-page="${leaving}"]`);
+    if (leaveEl) {
+        leaveEl.classList.add('is-leaving');
+        leaveEl.classList.remove('is-active');
+        setTimeout(() => leaveEl.classList.remove('is-leaving'), 500);
+    }
     showSettingsPage(settingsStack[settingsStack.length - 1]);
 }
 
 function closeSettings() {
     if (!settingsSidebar) return;
+    settingsSidebar.classList.add('is-closing');
     settingsSidebar.classList.remove('open');
     settingsSidebar.setAttribute('aria-hidden', 'true');
     if (sidebarOverlay) sidebarOverlay.classList.remove('visible');
-    settingsStack = ['root'];
-    showSettingsPage('root');
+    setTimeout(() => {
+        settingsSidebar.classList.remove('is-closing');
+        settingsStack = ['root'];
+        document.querySelectorAll('.settings-page.is-leaving').forEach((page) => {
+            page.classList.remove('is-leaving');
+        });
+        showSettingsPage('root');
+    }, 400);
 }
 
 function bindSettingsRowPress(el, onActivate) {
@@ -1658,15 +1673,105 @@ function showToast(text, isError = false) {
 }
 
 function applyTheme(theme, persist) {
-    const allowed = ['classic', 'midnight', 'indigo'];
+    const allowed = ['classic', 'midnight'];
     const next = allowed.includes(theme) ? theme : 'midnight';
     document.documentElement.setAttribute('data-theme', next);
     if (persist) {
         localStorage.setItem('wavest_theme', next);
     }
 
-    const colors = { classic: '#f9f9f9', midnight: '#000000', indigo: '#f2f2f7' };
+    const colors = { classic: '#f9f9f9', midnight: '#000000' };
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', colors[next]);
+    syncAppearanceChecks();
+    applyBubbleColors();
     requestAnimationFrame(resizeCanvases);
+}
+
+function normalizeHex(value, fallback) {
+    const raw = String(value || '').trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw.toLowerCase();
+    if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+        return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`.toLowerCase();
+    }
+    return fallback;
+}
+
+function contrastInk(hex) {
+    const n = normalizeHex(hex, '#000000').slice(1);
+    const r = parseInt(n.slice(0, 2), 16) / 255;
+    const g = parseInt(n.slice(2, 4), 16) / 255;
+    const b = parseInt(n.slice(4, 6), 16) / 255;
+    const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    return luminance > 0.58 ? '#000000' : '#ffffff';
+}
+
+function applyBubbleColors() {
+    const root = document.documentElement;
+    const sent = normalizeHex(localStorage.getItem('wavest_bubble_sent'), '');
+    const enc = normalizeHex(localStorage.getItem('wavest_bubble_sent_encrypted'), '');
+    if (sent) root.style.setProperty('--bubble-sent', sent);
+    else root.style.removeProperty('--bubble-sent');
+    if (enc) root.style.setProperty('--bubble-sent-encrypted', enc);
+    else root.style.removeProperty('--bubble-sent-encrypted');
+
+    const cs = getComputedStyle(root);
+    const sentNow = normalizeHex(cs.getPropertyValue('--bubble-sent'), '#0a84ff');
+    const encNow = normalizeHex(cs.getPropertyValue('--bubble-sent-encrypted'), '#9d3bff');
+    root.style.setProperty('--bubble-sent-text', contrastInk(sentNow));
+    root.style.setProperty('--bubble-sent-encrypted-text', contrastInk(encNow));
+    syncColorInputs();
+    syncSendBtnTheme();
+}
+
+function syncColorInputs() {
+    const sent = document.getElementById('color-sent');
+    const enc = document.getElementById('color-sent-enc');
+    const cs = getComputedStyle(document.documentElement);
+    if (sent) sent.value = normalizeHex(cs.getPropertyValue('--bubble-sent'), '#0a84ff');
+    if (enc) enc.value = normalizeHex(cs.getPropertyValue('--bubble-sent-encrypted'), '#9d3bff');
+}
+
+function syncAppearanceChecks() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'midnight';
+    const dark = document.getElementById('theme-dark-check');
+    const light = document.getElementById('theme-light-check');
+    if (dark) dark.classList.toggle('is-on', theme !== 'classic');
+    if (light) light.classList.toggle('is-on', theme === 'classic');
+}
+
+function bindAppearanceSettings() {
+    const darkBtn = document.getElementById('theme-dark-btn');
+    const lightBtn = document.getElementById('theme-light-btn');
+    const sent = document.getElementById('color-sent');
+    const enc = document.getElementById('color-sent-enc');
+    if (darkBtn) {
+        bindSettingsRowPress(darkBtn, () => applyTheme('midnight', true));
+    }
+    if (lightBtn) {
+        bindSettingsRowPress(lightBtn, () => applyTheme('classic', true));
+    }
+    if (sent) {
+        sent.addEventListener('input', () => {
+            localStorage.setItem('wavest_bubble_sent', sent.value);
+            applyBubbleColors();
+        });
+    }
+    if (enc) {
+        enc.addEventListener('input', () => {
+            localStorage.setItem('wavest_bubble_sent_encrypted', enc.value);
+            applyBubbleColors();
+        });
+    }
+    const resetBtn = document.getElementById('reset-bubble-colors-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            localStorage.removeItem('wavest_bubble_sent');
+            localStorage.removeItem('wavest_bubble_sent_encrypted');
+            applyBubbleColors();
+        });
+    }
+    syncAppearanceChecks();
+    syncColorInputs();
 }

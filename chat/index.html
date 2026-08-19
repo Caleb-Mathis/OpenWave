@@ -108,6 +108,17 @@
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
                                     </span>
                                 </button>
+                                <button type="button" class="ios-row settings-link" data-push="appearance">
+                                    <span class="settings-link-main">
+                                        <span class="settings-link-icon" style="background:#8e8e93">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" /></svg>
+                                        </span>
+                                        Appearance
+                                    </span>
+                                    <span class="settings-chevron" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
+                                    </span>
+                                </button>
                                 <button type="button" class="ios-row settings-link" data-push="identity">
                                     <span class="settings-link-main">
                                         <span class="settings-link-icon" style="background:#007aff">
@@ -263,6 +274,52 @@
                             <div class="ios-inset">
                                 <button type="button" class="action-btn danger" id="delete-contact-btn">Delete Contact</button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-page" data-page="appearance">
+                    <div class="sheet-header sheet-header-sub">
+                        <button type="button" class="icon-btn glass-btn back-btn" data-pop aria-label="Back">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                        </button>
+                        <h3>Appearance</h3>
+                        <span class="header-spacer"></span>
+                    </div>
+                    <div class="sidebar-content">
+                        <div class="ios-group">
+                            <p class="ios-caption">Mode</p>
+                            <div class="ios-inset">
+                                <button type="button" class="ios-row settings-link" id="theme-dark-btn">
+                                    <span>Dark</span>
+                                    <span class="row-check" id="theme-dark-check" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                </button>
+                                <button type="button" class="ios-row settings-link" id="theme-light-btn">
+                                    <span>Light</span>
+                                    <span class="row-check" id="theme-light-check" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ios-group">
+                            <p class="ios-caption">Sent Bubble Color</p>
+                            <div class="ios-inset">
+                                <label class="ios-row" for="color-sent">
+                                    <span>Unencrypted</span>
+                                    <input type="color" id="color-sent" class="color-chip" value="#0a84ff">
+                                </label>
+                                <label class="ios-row" for="color-sent-enc">
+                                    <span>Encrypted</span>
+                                    <input type="color" id="color-sent-enc" class="color-chip" value="#9d3bff">
+                                </label>
+                            </div>
+                            <div class="ios-inset" style="margin-top:12px">
+                                <button type="button" class="action-btn" id="reset-bubble-colors-btn">Reset Bubble Colors</button>
+                            </div>
+                            <p class="ios-footer">These colors apply to your sent bubbles, the send button, and the send spectrogram. Incoming messages stay the same.</p>
                         </div>
                     </div>
                 </div>
