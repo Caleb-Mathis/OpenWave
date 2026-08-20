@@ -1986,12 +1986,42 @@ function applyTheme(theme, persist) {
         localStorage.setItem('wavest_theme', next);
     }
 
-    const colors = { classic: '#f9f9f9', midnight: '#000000' };
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', colors[next]);
+    syncStatusBarTheme();
     syncAppearanceChecks();
     applyBubbleColors();
     requestAnimationFrame(resizeCanvases);
+}
+
+function syncStatusBarTheme() {
+    const root = document.documentElement;
+    const theme = root.getAttribute('data-theme') || 'midnight';
+    const isLight = theme === 'classic' || theme === 'indigo';
+    const computed = getComputedStyle(root).getPropertyValue('--status-bar').trim();
+    const color = normalizeHex(computed, isLight ? '#f9f9f9' : '#000000');
+
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.remove());
+    const themeMeta = document.createElement('meta');
+    themeMeta.setAttribute('name', 'theme-color');
+    themeMeta.setAttribute('content', color);
+    document.head.insertBefore(themeMeta, document.head.firstChild);
+
+    let appleBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (!appleBar) {
+        appleBar = document.createElement('meta');
+        appleBar.setAttribute('name', 'apple-mobile-web-app-status-bar-style');
+        document.head.appendChild(appleBar);
+    }
+    appleBar.setAttribute('content', isLight ? 'default' : 'black');
+
+    // iOS 26 ignores live theme-color writes and re-tints from newly inserted
+    // position:fixed elements that have a solid background-color.
+    const prevBleed = document.getElementById('status-bleed');
+    if (prevBleed) prevBleed.remove();
+    const bleed = document.createElement('div');
+    bleed.id = 'status-bleed';
+    bleed.setAttribute('aria-hidden', 'true');
+    bleed.style.backgroundColor = color;
+    document.body.insertBefore(bleed, document.body.firstChild);
 }
 
 function normalizeHex(value, fallback) {

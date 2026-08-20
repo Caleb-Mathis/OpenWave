@@ -28,6 +28,7 @@
 
 html {
     color-scheme: dark;
+    background-color: var(--status-bar);
 }
 
 html.theme-ready {
@@ -241,6 +242,7 @@ html.theme-ready {
     --composer-pad-x: 12px;
     --composer-gap: 8px;
     --composer-row-h: 42px;
+    --composer-field-radius: calc(var(--composer-row-h) / 2);
     --nav-btn-size: 48px;
 }
 
@@ -575,13 +577,17 @@ html.layout-debug-on .composer::after {
 }
 
 .send-viz {
+    --send-viz-left: calc(var(--composer-pad-x) + var(--composer-row-h) + var(--composer-gap) + var(--composer-field-radius));
+    --send-viz-right: calc(var(--composer-pad-x) + var(--composer-field-radius));
     position: absolute;
-    left: calc(var(--composer-pad-x) + var(--composer-row-h) + var(--composer-gap));
-    right: var(--composer-pad-x);
+    display: block;
+    left: var(--send-viz-left);
+    right: auto;
     bottom: calc(var(--composer-pad-bottom) + var(--composer-row-h) + var(--kb-inset, 0px));
-    width: auto;
+    width: calc(100% - var(--send-viz-left) - var(--send-viz-right));
     height: 38%;
     max-height: 270px;
+    overflow: hidden;
     pointer-events: none;
     z-index: 1;
     opacity: 0;
@@ -795,6 +801,17 @@ html.layout-debug-on .composer::after {
     box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
+#status-bleed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background-color: var(--status-bar);
+    z-index: 400;
+    pointer-events: none;
+}
+
 .composer-field {
     position: relative;
     flex: 1;
@@ -805,7 +822,7 @@ html.layout-debug-on .composer::after {
     backdrop-filter: saturate(190%) blur(28px);
     -webkit-backdrop-filter: saturate(190%) blur(28px);
     border: 0.5px solid var(--input-border);
-    border-radius: 24px;
+    border-radius: var(--composer-field-radius);
     box-shadow: var(--glass-shadow);
     padding: 3px 3px 3px 15px;
 }

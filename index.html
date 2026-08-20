@@ -7,9 +7,19 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="OpenWave">
-    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#000000">
     <meta name="format-detection" content="telephone=no">
+    <script>
+        (function () {
+            var light = localStorage.getItem('wavest_theme') === 'classic';
+            document.documentElement.setAttribute('data-theme', light ? 'classic' : 'midnight');
+            var color = light ? '#f9f9f9' : '#000000';
+            var themeMeta = document.querySelector('meta[name="theme-color"]');
+            if (themeMeta) themeMeta.setAttribute('content', color);
+            var barMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+            if (barMeta) barMeta.setAttribute('content', light ? 'default' : 'black');
+        })();
+    </script>
     <title>OpenWave</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -17,6 +27,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="status-bleed" aria-hidden="true"></div>
     <div class="app-container">
         <header class="nav-bar">
             <button id="open-settings-btn" class="icon-btn glass-btn" aria-label="Open Settings">
