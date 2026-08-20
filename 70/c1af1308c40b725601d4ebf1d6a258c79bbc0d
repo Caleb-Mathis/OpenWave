@@ -1,0 +1,23 @@
+app.js
+  s_84b2376b89d325::t_e08bc77f3b1b83 443-450,626-629,636-644,836,845-846,886-893,897,903-907,1911-1912,1915-1922
+  s_84b2376b89d325::t_93aa1b804aa8ab 630-635,983-987
+  s_84b2376b89d325::t_bda8b1b80c7d90 21,835,837-844
+  s_84b2376b89d325::t_90db4fb23fd1f2 645,976-978,982,989-999,1001-1019,1021-1067
+  s_84b2376b89d325::t_bf5d3d4ac9557a 646
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "70c1af1308c40b725601d4ebf1d6a258c79bbc0d",
+  "prompts": {},
+  "sessions": {
+    "s_84b2376b89d325": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6730993-91b5-4eac-b93f-d2f230894802",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Brandon Mathis <brandon@imathis.com>"
+    }
+  }
+}
