@@ -22,6 +22,18 @@ let txPending = false; // covers the async gap before isTransmitting is set
 let soundFeedbackEnabled = true;
 let micAccessGranted = localStorage.getItem('wavest_mic_granted') === '1';
 
+// Haptics are on by default. Turn them off in either place:
+//   1. This list (id or CSS selector). Reload after editing.
+//   2. data-haptic="off" on a button — or on a parent to mute a whole page.
+//      data-haptic="on" on a child re-enables it inside an off parent.
+// Examples:
+//   'send-btn'
+//   '[data-push]'                 // Acoustic / Appearance / Identity / System rows
+//   '[data-page="root"]'          // everything on the Settings home page
+//   '#close-settings-btn'
+const HAPTIC_SKIP = [
+];
+
 // Secure Communication State
 const DEFAULT_CALLSIGN = 'OpenWave User';
 let myCallsign = DEFAULT_CALLSIGN;
@@ -150,8 +162,110 @@ function measureCanvasBox(el, fallbackH) {
 
 function isTextField(el) {
     if (!el || el === document.body) return false;
+    if (el.isContentEditable) return true;
     const tag = el.tagName;
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag !== 'INPUT') return false;
+    const type = (el.type || 'text').toLowerCase();
+    return type !== 'checkbox' && type !== 'radio' && type !== 'button'
+        && type !== 'submit' && type !== 'range' && type !== 'color';
+}
+
+function hapticsEnabled(el) {
+    if (!el) return false;
+    let node = el;
+    while (node && node.nodeType === 1) {
+        const val = node.getAttribute('data-haptic');
+        if (val === 'off') return false;
+        if (val === 'on') return true;
+        node = node.parentElement;
+    }
+    for (let i = 0; i < HAPTIC_SKIP.length; i++) {
+        const raw = HAPTIC_SKIP[i];
+        if (!raw) continue;
+        const sel = /^[A-Za-z][\w-]*$/.test(raw) ? '#' + raw : raw;
+        try {
+            if (el.matches(sel) || (el.closest && el.closest(sel))) return false;
+        } catch (_) { /* ignore invalid selectors */ }
+    }
+    return true;
+}
+
+function vibrateAndroid() {
+    if (!/Android/i.test(navigator.userAgent) || typeof navigator.vibrate !== 'function') return;
+    const now = performance.now();
+    if (now - (vibrateAndroid._last || 0) < 40) return;
+    vibrateAndroid._last = now;
+    try {
+        navigator.vibrate(15);
+    } catch (_) { /* desktop / unsupported no-op */ }
+}
+
+function hapticTick(el) {
+    if (!hapticsEnabled(el)) return;
+    vibrateAndroid();
+}
+
+function applyNativeSwitchHaptic(input) {
+    if (!input) return;
+    if (hapticsEnabled(input)) input.setAttribute('switch', '');
+    else input.removeAttribute('switch');
+}
+
+const hapticBound = new WeakSet();
+
+// iOS Taptic only fires when the finger actually toggles <input type="checkbox" switch>.
+// Overlay is invisible; do not click or toggle it from JavaScript.
+function hapticTrigger(element) {
+    if (!element) return;
+    if (!hapticsEnabled(element)) return;
+    if (hapticBound.has(element)) {
+        return element.querySelector(':scope > input[type="checkbox"][switch]');
+    }
+
+    const switchEl = document.createElement("input");
+    switchEl.type = "checkbox";
+    switchEl.setAttribute("switch", "");
+    switchEl.setAttribute("aria-hidden", "true");
+    switchEl.tabIndex = -1;
+
+    Object.assign(switchEl.style, {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        margin: 0,
+        opacity: 0,
+        cursor: "pointer",
+        clipPath: "inset(0 round 999px)",
+        touchAction: "manipulation",
+    });
+    switchEl.style.setProperty("-webkit-tap-highlight-color", "transparent");
+
+    if (getComputedStyle(element).position === "static") {
+        element.style.position = "relative";
+    }
+
+    element.insertAdjacentElement("beforeend", switchEl);
+    hapticBound.add(element);
+    return switchEl;
+}
+
+function onHapticTap(element, handler) {
+    if (!element || !handler) return;
+    const switchEl = hapticTrigger(element);
+    let last = 0;
+    const fire = () => {
+        const now = performance.now();
+        if (now - last < 80) return;
+        last = now;
+        if (element.disabled) return;
+        hapticTick(element);
+        handler();
+    };
+    element.addEventListener('click', fire);
+    if (switchEl) switchEl.addEventListener('change', fire);
 }
 
 function isStandaloneDisplay() {
@@ -449,13 +563,13 @@ function setupUIEventListeners() {
     }, true);
 
     // Send message triggers
-    sendBtn.addEventListener('click', transmitMessage);
+    onHapticTap(sendBtn, transmitMessage);
     messageInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') transmitMessage();
     });
 
     // Capture Toggle Listener
-    captureToggleBtn.addEventListener('click', toggleAudioCapture);
+    onHapticTap(captureToggleBtn, toggleAudioCapture);
 
     bindSettingsNavigation();
     bindAppearanceSettings();
@@ -482,14 +596,16 @@ function setupUIEventListeners() {
         sensitivityVal.innerText = e.target.value.includes('.') ? e.target.value : e.target.value + '.0';
     });
 
+    applyNativeSwitchHaptic(soundFeedbackToggle);
     soundFeedbackToggle.addEventListener('change', (e) => {
         soundFeedbackEnabled = e.target.checked;
+        hapticTick(e.target);
     });
 
-    loopbackTestBtn.addEventListener('click', runDiagnosticsLoopback);
+    onHapticTap(loopbackTestBtn, runDiagnosticsLoopback);
 
     if (clearChatBtn) {
-        clearChatBtn.addEventListener('click', () => {
+        onHapticTap(clearChatBtn, () => {
             if (chatThread) chatThread.innerHTML = '';
             else chatMessages.innerHTML = '';
             closeSettings();
@@ -693,7 +809,7 @@ function startAudioCapture() {
                 const rawText = new TextDecoder('utf-8').decode(bytes);
                 console.log('Successfully decoded raw sonic payload:', rawText);
                 const parsed = await parseReceivedPacket(rawText);
-                appendMessage(parsed.sender, parsed.message, 'received', parsed.encrypted);
+                appendMessage(parsed.sender, parsed.message, 'received', parsed.encrypted, parsed.decrypted);
                 playReceivedChime();
             } catch (decodeErr) {
                 console.error('Decoding text payload failed:', decodeErr);
@@ -925,7 +1041,7 @@ async function transmitMessage() {
 }
 
 // Append message into scrollable chat view
-function appendMessage(sender, text, direction, isEncrypted = false) {
+function appendMessage(sender, text, direction, isEncrypted = false, isDecrypted = true) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${direction}`;
     
@@ -945,6 +1061,7 @@ function appendMessage(sender, text, direction, isEncrypted = false) {
     
     // Encryption Lock indicator
     if (isEncrypted) messageDiv.classList.add('encrypted');
+    if (isEncrypted && !isDecrypted) messageDiv.classList.add('undecrypted');
     
     const timeSpan = document.createElement('span');
     timeSpan.className = 'msg-time';
@@ -1316,22 +1433,24 @@ function bindSecureSettingsListeners() {
     }
 
     if (encryptionToggle) {
+        applyNativeSwitchHaptic(encryptionToggle);
         encryptionToggle.addEventListener('change', (e) => {
             encryptionEnabled = e.target.checked;
             localStorage.setItem('wavest_encryption_on', encryptionEnabled ? '1' : '0');
             syncPasskeyEnabled();
             syncSendBtnTheme();
+            hapticTick(e.target);
         });
     }
 
     if (addContactBtn) {
-        addContactBtn.addEventListener('click', () => openContactEditor(null));
+        onHapticTap(addContactBtn, () => openContactEditor(null));
     }
     if (saveContactBtn) {
-        saveContactBtn.addEventListener('click', saveContactEditor);
+        onHapticTap(saveContactBtn, saveContactEditor);
     }
     if (deleteContactBtn) {
-        deleteContactBtn.addEventListener('click', () => {
+        onHapticTap(deleteContactBtn, () => {
             if (!editingCallsign) return;
             deleteContact(editingCallsign);
             popSettingsPage();
@@ -1530,7 +1649,23 @@ function closeSettings(options = {}) {
 
 function bindSettingsRowPress(el, onActivate) {
     if (!el) return;
+    const switchEl = hapticTrigger(el);
     let held = false;
+    let last = 0;
+    const activate = () => {
+        const now = performance.now();
+        if (now - last < 80) return;
+        last = now;
+        if (el.disabled) return;
+        hapticTick(el);
+        el.dataset.opening = '1';
+        if (onActivate) onActivate();
+        setTimeout(() => {
+            delete el.dataset.opening;
+            held = false;
+            el.classList.remove('is-pressed');
+        }, 420);
+    };
     el.addEventListener('pointerdown', () => {
         held = true;
         el.classList.add('is-pressed');
@@ -1544,29 +1679,22 @@ function bindSettingsRowPress(el, onActivate) {
         held = false;
         el.classList.remove('is-pressed');
     });
-    el.addEventListener('click', () => {
-        el.dataset.opening = '1';
-        if (onActivate) onActivate();
-        setTimeout(() => {
-            delete el.dataset.opening;
-            held = false;
-            el.classList.remove('is-pressed');
-        }, 420);
-    });
+    el.addEventListener('click', activate);
+    if (switchEl) switchEl.addEventListener('change', activate);
 }
 
 function bindSettingsNavigation() {
     if (openSettingsBtn) {
-        openSettingsBtn.addEventListener('click', openSettings);
+        onHapticTap(openSettingsBtn, openSettings);
     }
-    if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
+    if (closeSettingsBtn) onHapticTap(closeSettingsBtn, closeSettings);
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSettings);
 
     document.querySelectorAll('[data-push]').forEach((btn) => {
         bindSettingsRowPress(btn, () => pushSettingsPage(btn.getAttribute('data-push')));
     });
     document.querySelectorAll('[data-pop]').forEach((btn) => {
-        btn.addEventListener('click', popSettingsPage);
+        onHapticTap(btn, popSettingsPage);
     });
     bindInteractiveBackGesture();
 }
@@ -1678,7 +1806,7 @@ function bindInteractiveBackGesture() {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         const rect = settingsSidebar.getBoundingClientRect();
         if (e.clientX - rect.left > EDGE) return;
-        if (e.target.closest('input, textarea, select, .ios-switch')) return;
+        if (e.target.closest('textarea, select, input:not([switch]), .ios-switch')) return;
 
         tracking = true;
         locked = false;
@@ -1849,8 +1977,10 @@ function bindPressFeedback(el) {
 
 function bindProtocolSettings() {
     if (ultrasoundToggle) {
+        applyNativeSwitchHaptic(ultrasoundToggle);
         ultrasoundToggle.addEventListener('change', (e) => {
             setProtocolBand(e.target.checked ? 'ultrasound' : 'audible');
+            hapticTick(e.target);
         });
     }
 
@@ -1867,7 +1997,7 @@ function bindProtocolSettings() {
     bindPressFeedback(protocolToggleBtn);
 
     if (protocolToggleBtn) {
-        protocolToggleBtn.addEventListener('click', () => {
+        onHapticTap(protocolToggleBtn, () => {
             setProtocolBand(protocolBand === 'ultrasound' ? 'audible' : 'ultrasound');
         });
     }
@@ -2094,10 +2224,10 @@ function bindAppearanceSettings() {
     const sent = document.getElementById('color-sent');
     const enc = document.getElementById('color-sent-enc');
     if (darkBtn) {
-        darkBtn.addEventListener('click', () => applyTheme('midnight', true));
+        onHapticTap(darkBtn, () => applyTheme('midnight', true));
     }
     if (lightBtn) {
-        lightBtn.addEventListener('click', () => applyTheme('classic', true));
+        onHapticTap(lightBtn, () => applyTheme('classic', true));
     }
     if (sent) {
         sent.addEventListener('input', () => {
@@ -2113,7 +2243,7 @@ function bindAppearanceSettings() {
     }
     const resetBtn = document.getElementById('reset-bubble-colors-btn');
     if (resetBtn) {
-        resetBtn.addEventListener('click', () => {
+        onHapticTap(resetBtn, () => {
             localStorage.removeItem('wavest_bubble_sent');
             localStorage.removeItem('wavest_bubble_sent_encrypted');
             applyBubbleColors();

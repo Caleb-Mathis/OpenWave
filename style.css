@@ -83,7 +83,7 @@ html.theme-ready {
     --bubble-sent-text: #ffffff;
     --bubble-received: #28282a;
     --bubble-received-text: #ffffff;
-    --bubble-sent-encrypted: #4258ff;
+    --bubble-sent-encrypted: #7858ff;
     --bubble-received-encrypted: #28282a;
     --fill: rgba(120, 120, 128, 0.28);
     --fill-strong: rgba(120, 120, 128, 0.4);
@@ -135,7 +135,7 @@ html.theme-ready {
     --bubble-sent-text: #ffffff;
     --bubble-received: #eaeaeb;
     --bubble-received-text: #000000;
-    --bubble-sent-encrypted: #4258ff;
+    --bubble-sent-encrypted: #7858ff;
     --bubble-received-encrypted: #eaeaeb;
     --fill: rgba(120, 120, 128, 0.18);
     --fill-strong: rgba(120, 120, 128, 0.28);
@@ -712,6 +712,11 @@ html.layout-debug-on .composer::after {
     color: var(--bubble-received-text);
 }
 
+.message.undecrypted .msg-content {
+    font-style: italic;
+    color: var(--text-secondary);
+}
+
 [data-theme="indigo"] .message.received .msg-content {
     box-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.04);
 }
@@ -1063,8 +1068,9 @@ html.layout-debug-on .composer::after {
 
 #close-settings-btn svg,
 #save-contact-btn svg {
-    width: 22px;
-    height: 22px;
+    display: block;
+    width: 32px;
+    height: 32px;
 }
 
 #save-contact-btn {
@@ -1534,12 +1540,25 @@ button.ios-row:last-child {
     width: 51px;
     height: 31px;
     flex-shrink: 0;
+    overflow: hidden;
 }
 
 .ios-switch input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
     opacity: 0;
-    width: 0;
-    height: 0;
+    cursor: pointer;
+    z-index: 1;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled > input[switch] {
+    pointer-events: none;
 }
 
 .ios-switch-track {

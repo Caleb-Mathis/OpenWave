@@ -101,8 +101,9 @@
                     </div>
                     <div class="sidebar-content">
                         <div class="ios-group">
+                            <!-- data-haptic="off" on a button (or this wrapper) mutes iOS tap ticks. -->
                             <div class="ios-inset">
-                                <button type="button" class="ios-row settings-link" data-push="acoustic">
+                                <button type="button" class="ios-row settings-link" data-push="acoustic" data-haptic="off">
                                     <span class="settings-link-main">
                                         <span class="settings-link-icon" style="background:#007aff">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0" /></svg>
@@ -113,7 +114,7 @@
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
                                     </span>
                                 </button>
-                                <button type="button" class="ios-row settings-link" data-push="appearance">
+                                <button type="button" class="ios-row settings-link" data-push="appearance" data-haptic="off">
                                     <span class="settings-link-main">
                                         <span class="settings-link-icon" style="background:#000000">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" /></svg>
@@ -124,7 +125,7 @@
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
                                     </span>
                                 </button>
-                                <button type="button" class="ios-row settings-link" data-push="identity">
+                                <button type="button" class="ios-row settings-link" data-push="identity" data-haptic="off">
                                     <span class="settings-link-main">
                                         <span class="settings-link-icon" style="background:#5856d6">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
@@ -135,7 +136,7 @@
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
                                     </span>
                                 </button>
-                                <button type="button" class="ios-row settings-link" data-push="system">
+                                <button type="button" class="ios-row settings-link" data-push="system" data-haptic="off">
                                     <span class="settings-link-main">
                                         <span class="settings-link-icon" style="background:#8e8e93">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 1 1 2.83 2.83l.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
@@ -169,7 +170,7 @@
                                 <div class="ios-row">
                                     <label for="ultrasound-toggle">Ultrasound</label>
                                     <label class="ios-switch">
-                                        <input type="checkbox" id="ultrasound-toggle" checked>
+                                        <input type="checkbox" id="ultrasound-toggle" switch checked>
                                         <span class="ios-switch-track"></span>
                                     </label>
                                 </div>
@@ -197,7 +198,7 @@
                                 <div class="ios-row">
                                     <label for="sound-feedback-toggle">Tx Audio Feedback</label>
                                     <label class="ios-switch">
-                                        <input type="checkbox" id="sound-feedback-toggle" checked>
+                                        <input type="checkbox" id="sound-feedback-toggle" switch checked>
                                         <span class="ios-switch-track"></span>
                                     </label>
                                 </div>
@@ -231,7 +232,7 @@
                                 <div class="ios-row">
                                     <label for="encryption-toggle">Encryption</label>
                                     <label class="ios-switch">
-                                        <input type="checkbox" id="encryption-toggle">
+                                        <input type="checkbox" id="encryption-toggle" switch>
                                         <span class="ios-switch-track"></span>
                                     </label>
                                 </div>
