@@ -239,14 +239,13 @@ function hapticTrigger(element) {
         cursor: "pointer",
         clipPath: "inset(0 round 999px)",
         touchAction: "manipulation",
-        pointerEvents: "auto",
     });
     switchEl.style.setProperty("-webkit-tap-highlight-color", "transparent");
 
     // Detached nodes report an empty computed position, so an absolute overlay
     // would pin to the nearest positioned ancestor (the whole settings page).
-    const computedPos = element.isConnected ? getComputedStyle(element).position : '';
-    if (!computedPos || computedPos === 'static') {
+    const pos = element.isConnected ? getComputedStyle(element).position : 'static';
+    if (!pos || pos === 'static') {
         element.style.position = 'relative';
     }
 
@@ -1624,7 +1623,10 @@ function closeSettings(options = {}) {
 
     if (fromSwipe) {
         settingsSidebar.classList.remove('is-swiping');
-        settingsSidebar.style.transition = `transform ${cssVar('--sheet-out-duration', '0.4s')} ${cssVar('--sheet-out-ease', 'cubic-bezier(0.4, 0.06, 0.2, 1)')}`;
+        settingsSidebar.style.transition = motionTransform(
+            '--sheet-out-duration', '--sheet-out-ease',
+            '0.4s', 'cubic-bezier(0.4, 0.06, 0.2, 1)'
+        );
         settingsSidebar.style.transform = 'translate3d(110%, 0, 0)';
         let settled = false;
         const settle = () => {
@@ -1706,8 +1708,14 @@ function bindInteractiveBackGesture() {
     if (!settingsSidebar) return;
 
     const EDGE = 28;
-    const PAGE_EASE = `transform ${cssVar('--page-duration', '0.42s')} ${cssVar('--ease-out-spring', 'cubic-bezier(0.2, 0.75, 0.45, 1)')}`;
-    const CLOSE_EASE = `transform ${cssVar('--sheet-out-duration', '0.4s')} ${cssVar('--sheet-out-ease', 'cubic-bezier(0.4, 0.06, 0.2, 1)')}`;
+    const PAGE_EASE = motionTransform(
+        '--page-duration', '--ease-out-spring',
+        '0.42s', 'cubic-bezier(0.2, 0.75, 0.45, 1)'
+    );
+    const CLOSE_EASE = motionTransform(
+        '--sheet-out-duration', '--sheet-out-ease',
+        '0.4s', 'cubic-bezier(0.4, 0.06, 0.2, 1)'
+    );
     let tracking = false;
     let locked = false;
     let pointerId = null;
@@ -1878,6 +1886,10 @@ function bindInteractiveBackGesture() {
 function cssVar(name, fallback) {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return value || fallback;
+}
+
+function motionTransform(durationVar, easeVar, durationFallback, easeFallback) {
+    return `transform ${cssVar(durationVar, durationFallback)} ${cssVar(easeVar, easeFallback)}`;
 }
 
 function hexToRgb(hex) {

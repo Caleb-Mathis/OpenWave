@@ -977,8 +977,6 @@ html.layout-debug-on .composer::after {
     transform: translate3d(0, 100%, 0);
     transition: transform var(--sheet-in-duration) var(--ease-out-spring);
     will-change: transform;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
 }
 
 .settings-sheet.open {
@@ -992,10 +990,6 @@ html.layout-debug-on .composer::after {
 .settings-sheet.is-swiping,
 .settings-page.is-swiping {
     transition: none !important;
-}
-
-.settings-page.is-swiping {
-    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
 }
 
 .settings-sheet.is-swipe-closing {
@@ -1024,8 +1018,6 @@ html.layout-debug-on .composer::after {
     transition: transform var(--page-duration) var(--ease-out-spring);
     pointer-events: none;
     z-index: 0;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
 }
 
 .settings-page.is-active {
@@ -1044,9 +1036,16 @@ html.layout-debug-on .composer::after {
     transform: translate3d(100%, 0, 0);
     pointer-events: none;
     z-index: 3;
-    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
 }
 
+.settings-sheet,
+.settings-page {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.settings-page.is-swiping,
+.settings-page.is-leaving,
 .settings-page.is-active:not([data-page="root"]) {
     box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
 }
