@@ -354,11 +354,15 @@ function setupViewportLock() {
         }
 
         const typing = isTextField(document.activeElement);
+        const waitingForKeyboard = typing && performance.now() < trackingUntil;
         let inset = 0;
 
         if (typing) {
             inset = measuredInset();
-            if (inset < 80) {
+            // Only guess the keyboard height while it is animating in. If iOS
+            // shows the form accessory without the keyboard, measured inset
+            // stays small — do not keep a stale 300px lift forever.
+            if (inset < 80 && waitingForKeyboard) {
                 const hinted = Number(sessionStorage.getItem(HINT_KEY) || 0);
                 if (lastInset > 80) inset = lastInset;
                 else if (hinted > 80) inset = hinted;
@@ -389,6 +393,7 @@ function setupViewportLock() {
             trackRaf = requestAnimationFrame(track);
         } else {
             trackRaf = 0;
+            apply();
         }
     };
 
@@ -1491,9 +1496,10 @@ function bindSecureSettingsListeners() {
 }
 
 function syncPasskeyEnabled() {
+    const passkeyInput = document.getElementById('passkey-input');
     const passkeyRow = document.getElementById('passkey-row');
+    if (passkeyInput) passkeyInput.disabled = !encryptionEnabled;
     if (passkeyRow) passkeyRow.classList.toggle('is-disabled', !encryptionEnabled);
-    syncInteractiveSurfaces();
 }
 
 function escapeHtml(text) {
@@ -1575,14 +1581,6 @@ function settingsIsOpen() {
     return !!(settingsSidebar && settingsSidebar.getAttribute('aria-hidden') === 'false');
 }
 
-const TEXT_FIELD_IDS = [
-    'message-input',
-    'callsign-input',
-    'passkey-input',
-    'contact-callsign-input',
-    'contact-key-input',
-];
-
 function syncInteractiveSurfaces() {
     const open = settingsIsOpen();
     const composer = document.querySelector('.composer');
@@ -1600,26 +1598,6 @@ function syncInteractiveSurfaces() {
         const pid = page.getAttribute('data-page');
         if (open && pid === top) page.removeAttribute('inert');
         else page.setAttribute('inert', '');
-    });
-
-    let activeIds = [];
-    if (!open) activeIds = ['message-input'];
-    else if (top === 'identity') activeIds = ['callsign-input', 'passkey-input'];
-    else if (top === 'contact-edit') activeIds = ['contact-callsign-input', 'contact-key-input'];
-
-    TEXT_FIELD_IDS.forEach((id) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const on = activeIds.includes(id);
-        if (on) {
-            if (id === 'passkey-input' && !encryptionEnabled) el.disabled = true;
-            else el.disabled = false;
-        } else if (document.activeElement === el) {
-            el.blur();
-            el.disabled = true;
-        } else {
-            el.disabled = true;
-        }
     });
 
     const trapped = document.activeElement;

@@ -844,11 +844,7 @@ html.layout-debug-on .composer::after {
     outline: none;
 }
 
-#message-input:disabled {
-    opacity: 1;
-    -webkit-text-fill-color: var(--text);
-    color: var(--text);
-}
+
 
 #message-input::placeholder {
     color: var(--text-tertiary);
@@ -1364,11 +1360,7 @@ button.ios-row:last-child {
     resize: none;
 }
 
-.ios-row input:disabled {
-    opacity: 1;
-    -webkit-text-fill-color: var(--text);
-    color: var(--text);
-}
+
 
 .ios-row input::placeholder,
 .ios-row textarea::placeholder {
