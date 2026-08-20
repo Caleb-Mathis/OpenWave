@@ -81,10 +81,10 @@ html.theme-ready {
     --text-tertiary: rgba(235, 235, 245, 0.32);
     --bubble-sent: #0a84ff;
     --bubble-sent-text: #ffffff;
-    --bubble-received: #3a3a3c;
+    --bubble-received: #28282a;
     --bubble-received-text: #ffffff;
-    --bubble-sent-encrypted: #9d3bff;
-    --bubble-received-encrypted: #3a3a3c;
+    --bubble-sent-encrypted: #4258ff;
+    --bubble-received-encrypted: #28282a;
     --fill: rgba(120, 120, 128, 0.28);
     --fill-strong: rgba(120, 120, 128, 0.4);
     --accent: #0a84ff;
@@ -133,10 +133,10 @@ html.theme-ready {
     --text-tertiary: rgba(60, 60, 67, 0.34);
     --bubble-sent: #007aff;
     --bubble-sent-text: #ffffff;
-    --bubble-received: #e9e9eb;
+    --bubble-received: #eaeaeb;
     --bubble-received-text: #000000;
-    --bubble-sent-encrypted: #af52de;
-    --bubble-received-encrypted: #e8d9f5;
+    --bubble-sent-encrypted: #4258ff;
+    --bubble-received-encrypted: #eaeaeb;
     --fill: rgba(120, 120, 128, 0.18);
     --fill-strong: rgba(120, 120, 128, 0.28);
     --accent: #007aff;
@@ -929,12 +929,12 @@ html.layout-debug-on .composer::after {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transform: translateY(110%);
-    transition: transform 0.5s cubic-bezier(0.22, 0.9, 0.24, 1);
+    transform: translate3d(0, 100%, 0);
+    transition: transform 0.48s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .settings-sheet.open {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
 }
 
 .settings-sheet.is-closing {
@@ -1665,7 +1665,7 @@ input[type="range"]::-moz-range-thumb {
 
 .settings-attribution {
     text-align: center;
-    font-size: 12px;
+    font-size: 10px;
     color: var(--text-tertiary);
     line-height: 1.5;
     margin-top: auto;

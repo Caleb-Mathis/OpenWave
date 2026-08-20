@@ -1484,6 +1484,16 @@ function resetSettingsSheet() {
     showSettingsPage('root');
 }
 
+function openSettings() {
+    if (!settingsSidebar) return;
+    resetSettingsSheet();
+    settingsSidebar.setAttribute('aria-hidden', 'false');
+    if (sidebarOverlay) sidebarOverlay.classList.add('visible');
+    if (settingsSidebar.classList.contains('open')) return;
+    void settingsSidebar.offsetWidth;
+    settingsSidebar.classList.add('open');
+}
+
 function closeSettings(options = {}) {
     if (!settingsSidebar) return;
     const fromSwipe = !!options.fromSwipe;
@@ -1547,13 +1557,7 @@ function bindSettingsRowPress(el, onActivate) {
 
 function bindSettingsNavigation() {
     if (openSettingsBtn) {
-        openSettingsBtn.addEventListener('click', () => {
-            settingsStack = ['root'];
-            showSettingsPage('root');
-            settingsSidebar.classList.add('open');
-            settingsSidebar.setAttribute('aria-hidden', 'false');
-            if (sidebarOverlay) sidebarOverlay.classList.add('visible');
-        });
+        openSettingsBtn.addEventListener('click', openSettings);
     }
     if (closeSettingsBtn) closeSettingsBtn.addEventListener('click', closeSettings);
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSettings);
