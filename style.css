@@ -926,6 +926,46 @@ html.layout-debug-on .composer::after {
 }
 
 /* --- Settings sheet --- */
+:root {
+    --sheet-in-duration: 0.45s;
+    --sheet-out-duration: 0.4s;
+    --sheet-out-ease: cubic-bezier(0.4, 0.06, 0.2, 1);
+    --page-duration: 0.42s;
+    --ease-out-spring: cubic-bezier(0.2, 0.75, 0.45, 1);
+}
+
+@supports (transition-timing-function: linear(0, 1)) {
+    :root {
+        --ease-out-spring: linear(
+            0,
+            0.103 4.2%,
+            0.218 8.3%,
+            0.3335 12.5%,
+            0.4424 16.7%,
+            0.5409 20.8%,
+            0.6274 25%,
+            0.7016 29.2%,
+            0.7638 33.3%,
+            0.8153 37.5%,
+            0.8573 41.7%,
+            0.891 45.8%,
+            0.9177 50%,
+            0.9387 54.2%,
+            0.9549 58.3%,
+            0.9674 62.5%,
+            0.9768 66.7%,
+            0.9839 70.8%,
+            0.9891 75%,
+            0.9929 79.2%,
+            0.9956 83.3%,
+            0.9975 87.5%,
+            0.9988 91.7%,
+            0.9996 95.8%,
+            1
+        );
+    }
+}
+
 .settings-sheet {
     position: absolute;
     inset: 0;
@@ -935,7 +975,10 @@ html.layout-debug-on .composer::after {
     flex-direction: column;
     overflow: hidden;
     transform: translate3d(0, 100%, 0);
-    transition: transform 0.48s cubic-bezier(0.32, 0.72, 0, 1);
+    transition: transform var(--sheet-in-duration) var(--ease-out-spring);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 .settings-sheet.open {
@@ -943,7 +986,7 @@ html.layout-debug-on .composer::after {
 }
 
 .settings-sheet.is-closing {
-    transition: transform 0.38s cubic-bezier(0.4, 0.06, 0.2, 1);
+    transition: transform var(--sheet-out-duration) var(--sheet-out-ease);
 }
 
 .settings-sheet.is-swiping,
@@ -956,8 +999,8 @@ html.layout-debug-on .composer::after {
 }
 
 .settings-sheet.is-swipe-closing {
-    transform: translateX(110%);
-    transition: transform 0.32s cubic-bezier(0.4, 0.06, 0.2, 1);
+    transform: translate3d(110%, 0, 0);
+    transition: transform var(--sheet-out-duration) var(--sheet-out-ease);
 }
 
 .settings-sheet.is-swipe-settling {
@@ -977,28 +1020,35 @@ html.layout-debug-on .composer::after {
     display: flex;
     flex-direction: column;
     background: var(--bg-grouped);
-    transform: translateX(100%);
-    transition: transform 0.48s cubic-bezier(0.22, 0.9, 0.24, 1);
+    transform: translate3d(100%, 0, 0);
+    transition: transform var(--page-duration) var(--ease-out-spring);
     pointer-events: none;
     z-index: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 .settings-page.is-active {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
     pointer-events: auto;
     z-index: 2;
 }
 
 .settings-page.is-behind {
-    transform: translateX(-22%);
+    transform: translate3d(-22%, 0, 0);
     pointer-events: none;
     z-index: 1;
 }
 
 .settings-page.is-leaving {
-    transform: translateX(100%);
+    transform: translate3d(100%, 0, 0);
     pointer-events: none;
     z-index: 3;
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
+}
+
+.settings-page.is-active:not([data-page="root"]) {
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
 }
 
 .sheet-header {
@@ -1740,6 +1790,11 @@ input[type="range"]::-moz-range-thumb {
     }
 
     html.theme-ready {
+        transition: none !important;
+    }
+
+    .settings-sheet,
+    .settings-page {
         transition: none !important;
     }
 }

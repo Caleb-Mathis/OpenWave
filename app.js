@@ -1586,7 +1586,7 @@ function popSettingsPage() {
     if (leaveEl) {
         leaveEl.classList.add('is-leaving');
         leaveEl.classList.remove('is-active');
-        setTimeout(() => leaveEl.classList.remove('is-leaving'), 500);
+        setTimeout(() => leaveEl.classList.remove('is-leaving'), 480);
     }
     showSettingsPage(settingsStack[settingsStack.length - 1]);
 }
@@ -1621,8 +1621,8 @@ function closeSettings(options = {}) {
 
     if (fromSwipe) {
         settingsSidebar.classList.remove('is-swiping');
-        settingsSidebar.style.transition = 'transform 0.32s cubic-bezier(0.4, 0.06, 0.2, 1)';
-        settingsSidebar.style.transform = 'translateX(110%)';
+        settingsSidebar.style.transition = `transform ${cssVar('--sheet-out-duration', '0.4s')} ${cssVar('--sheet-out-ease', 'cubic-bezier(0.4, 0.06, 0.2, 1)')}`;
+        settingsSidebar.style.transform = 'translate3d(110%, 0, 0)';
         let settled = false;
         const settle = () => {
             if (settled) return;
@@ -1638,13 +1638,13 @@ function closeSettings(options = {}) {
         settingsSidebar.addEventListener('transitionend', (e) => {
             if (e.propertyName === 'transform') settle();
         }, { once: true });
-        setTimeout(settle, 400);
+        setTimeout(settle, 450);
         return;
     }
 
     settingsSidebar.classList.add('is-closing');
     settingsSidebar.classList.remove('open');
-    setTimeout(resetSettingsSheet, 400);
+    setTimeout(resetSettingsSheet, 450);
 }
 
 function bindSettingsRowPress(el, onActivate) {
@@ -1703,8 +1703,8 @@ function bindInteractiveBackGesture() {
     if (!settingsSidebar) return;
 
     const EDGE = 28;
-    const PAGE_EASE = 'transform 0.48s cubic-bezier(0.22, 0.9, 0.24, 1)';
-    const CLOSE_EASE = 'transform 0.32s cubic-bezier(0.4, 0.06, 0.2, 1)';
+    const PAGE_EASE = `transform ${cssVar('--page-duration', '0.42s')} ${cssVar('--ease-out-spring', 'cubic-bezier(0.2, 0.75, 0.45, 1)')}`;
+    const CLOSE_EASE = `transform ${cssVar('--sheet-out-duration', '0.4s')} ${cssVar('--sheet-out-ease', 'cubic-bezier(0.4, 0.06, 0.2, 1)')}`;
     let tracking = false;
     let locked = false;
     let pointerId = null;
@@ -1739,12 +1739,12 @@ function bindInteractiveBackGesture() {
         const w = width();
         const x = Math.max(0, Math.min(dx, w));
         if (mode === 'pop' && leaveEl) {
-            leaveEl.style.transform = `translateX(${x}px)`;
+            leaveEl.style.transform = `translate3d(${x}px, 0, 0)`;
             if (behindEl) {
-                behindEl.style.transform = `translateX(${-0.22 * w + 0.22 * x}px)`;
+                behindEl.style.transform = `translate3d(${-0.22 * w + 0.22 * x}px, 0, 0)`;
             }
         } else if (mode === 'close') {
-            settingsSidebar.style.transform = `translateX(${x}px)`;
+            settingsSidebar.style.transform = `translate3d(${x}px, 0, 0)`;
         }
     };
 
@@ -1763,24 +1763,24 @@ function bindInteractiveBackGesture() {
         if (behindPage) behindPage.style.transition = PAGE_EASE;
         if (commit) {
             if (leavingPage) {
-                leavingPage.style.transform = 'translateX(100%)';
+                leavingPage.style.transform = 'translate3d(100%, 0, 0)';
                 leavingPage.classList.add('is-leaving');
             }
-            if (behindPage) behindPage.style.transform = 'translateX(0)';
+            if (behindPage) behindPage.style.transform = 'translate3d(0, 0, 0)';
             settingsStack.pop();
             showSettingsPage(settingsStack[settingsStack.length - 1]);
             setTimeout(() => {
                 if (leavingPage) leavingPage.classList.remove('is-leaving');
                 clearInline(leavingPage);
                 clearInline(behindPage);
-            }, 500);
+            }, 480);
         } else {
-            if (leavingPage) leavingPage.style.transform = 'translateX(0)';
-            if (behindPage) behindPage.style.transform = 'translateX(-22%)';
+            if (leavingPage) leavingPage.style.transform = 'translate3d(0, 0, 0)';
+            if (behindPage) behindPage.style.transform = 'translate3d(-22%, 0, 0)';
             setTimeout(() => {
                 clearInline(leavingPage);
                 clearInline(behindPage);
-            }, 480);
+            }, 450);
         }
     };
 
@@ -1791,14 +1791,14 @@ function bindInteractiveBackGesture() {
             return;
         }
         settingsSidebar.style.transition = CLOSE_EASE;
-        settingsSidebar.style.transform = 'translateX(0)';
+        settingsSidebar.style.transform = 'translate3d(0, 0, 0)';
         setTimeout(() => {
             if (!settingsSidebar.classList.contains('open')) return;
             settingsSidebar.style.transition = 'none';
             settingsSidebar.style.transform = '';
             settingsSidebar.offsetHeight;
             settingsSidebar.style.transition = '';
-        }, 340);
+        }, 430);
     };
 
     settingsSidebar.addEventListener('pointerdown', (e) => {
