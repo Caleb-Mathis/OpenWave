@@ -231,8 +231,7 @@ function hapticTrigger(element) {
 
     Object.assign(switchEl.style, {
         position: "absolute",
-        top: 0,
-        left: 0,
+        inset: "0",
         width: "100%",
         height: "100%",
         margin: 0,
@@ -240,11 +239,15 @@ function hapticTrigger(element) {
         cursor: "pointer",
         clipPath: "inset(0 round 999px)",
         touchAction: "manipulation",
+        pointerEvents: "auto",
     });
     switchEl.style.setProperty("-webkit-tap-highlight-color", "transparent");
 
-    if (getComputedStyle(element).position === "static") {
-        element.style.position = "relative";
+    // Detached nodes report an empty computed position, so an absolute overlay
+    // would pin to the nearest positioned ancestor (the whole settings page).
+    const computedPos = element.isConnected ? getComputedStyle(element).position : '';
+    if (!computedPos || computedPos === 'static') {
+        element.style.position = 'relative';
     }
 
     element.insertAdjacentElement("beforeend", switchEl);
@@ -1516,8 +1519,8 @@ function renderContactList() {
             <span class="settings-chevron" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
             </span>`;
-        bindSettingsRowPress(row, () => openContactEditor(name));
         list.appendChild(row);
+        bindSettingsRowPress(row, () => openContactEditor(name));
     });
 }
 
