@@ -149,6 +149,11 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="ios-group settings-root-clear">
+                            <div class="ios-inset">
+                                <button id="clear-chat-btn" class="action-btn danger" type="button">Clear Conversation</button>
+                            </div>
+                        </div>
                         <div class="settings-attribution">
                             <p>OpenWave v1.0 by Caleb Mathis</p>
                             <p>Based on Wavest by Benn Jordan &amp; GGWave by Georgi Gerganov.</p>
@@ -383,8 +388,15 @@
                         </div>
                         <div class="ios-group">
                             <div class="ios-inset">
-                                <button id="clear-chat-btn" class="action-btn danger" type="button">Clear Conversation</button>
+                                <div class="ios-row">
+                                    <label for="layout-debug-toggle">Viewport Debug</label>
+                                    <label class="ios-switch">
+                                        <input type="checkbox" id="layout-debug-toggle" switch>
+                                        <span class="ios-switch-track"></span>
+                                    </label>
+                                </div>
                             </div>
+                            <p class="ios-footer">Overlays live viewport, safe-area, and composer measurements on the chat screen.</p>
                         </div>
                     </div>
                 </div>

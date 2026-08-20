@@ -17,6 +17,7 @@ let currentProtocolId = null; // Map to ggwave.ProtocolId objects
 let txVolume = 0.6; // Outgoing volume multiplier (0.1 - 1.0)
 let rxGain = 1.0; // Microphone input gain multiplier
 let isCapturing = false;
+let captureToken = 0; // invalidates in-flight getUserMedia when listening is cancelled
 let isTransmitting = false;
 let txPending = false; // covers the async gap before isTransmitting is set
 let soundFeedbackEnabled = true;
@@ -273,7 +274,12 @@ function onHapticTap(element, handler) {
         hapticTick(element);
         handler();
     };
-    element.addEventListener('click', fire);
+    // The haptic overlay is a real checkbox. iOS emits `change` then a delayed
+    // `click` that bubbles to the button — treat that as one tap, not two.
+    element.addEventListener('click', (e) => {
+        if (switchEl && (e.target === switchEl || switchEl.contains(e.target))) return;
+        fire();
+    });
     if (switchEl) switchEl.addEventListener('change', fire);
 }
 
@@ -486,13 +492,11 @@ function readSafeInset(side) {
 
 function setupLayoutDebug() {
     const panel = document.getElementById('layout-debug');
-    const title = document.querySelector('.nav-titles h1');
+    const toggle = document.getElementById('layout-debug-toggle');
     if (!panel) return;
 
     const params = new URLSearchParams(window.location.search);
     let enabled = params.get('debug') === '1' || sessionStorage.getItem('wavest_layout_debug') === '1';
-    let tapCount = 0;
-    let tapTimer = 0;
 
     const paint = () => {
         if (!enabled) return;
@@ -515,8 +519,7 @@ function setupLayoutDebug() {
             `app rect y=${appBox ? Math.round(appBox.top) : '?'} h=${appBox ? Math.round(appBox.height) : '?'} bottom=${appBox ? Math.round(appBox.bottom) : '?'}`,
             `field rect y=${composerBox ? Math.round(composerBox.top) : '?'} h=${composerBox ? Math.round(composerBox.height) : '?'} bottom=${composerBox ? Math.round(composerBox.bottom) : '?'}`,
             `gap under field ${composerBox && appBox ? Math.round(appBox.bottom - composerBox.bottom) : '?'}px`,
-            `gap under app ${appBox ? Math.round(window.innerHeight - appBox.bottom) : '?'}px`,
-            `triple-tap OpenWave to hide`
+            `gap under app ${appBox ? Math.round(window.innerHeight - appBox.bottom) : '?'}px`
         ];
         panel.textContent = lines.join('\n');
     };
@@ -526,18 +529,15 @@ function setupLayoutDebug() {
         sessionStorage.setItem('wavest_layout_debug', next ? '1' : '0');
         document.documentElement.classList.toggle('layout-debug-on', next);
         panel.hidden = !next;
+        if (toggle) toggle.checked = next;
         if (next) paint();
     };
 
-    if (title) {
-        title.addEventListener('click', () => {
-            tapCount += 1;
-            clearTimeout(tapTimer);
-            tapTimer = setTimeout(() => { tapCount = 0; }, 500);
-            if (tapCount >= 3) {
-                tapCount = 0;
-                setEnabled(!enabled);
-            }
+    if (toggle) {
+        applyNativeSwitchHaptic(toggle);
+        toggle.addEventListener('change', (e) => {
+            setEnabled(e.target.checked);
+            hapticTick(e.target);
         });
     }
 
@@ -787,8 +787,56 @@ function isMicPermissionError(err) {
     return !!(err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'));
 }
 
+function setCaptureUi(on) {
+    if (!captureToggleBtn) return;
+    captureToggleBtn.classList.toggle('active', on);
+    captureToggleBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    captureToggleBtn.setAttribute('aria-label', on ? 'Stop listening' : 'Start listening');
+    if (statusIndicator) statusIndicator.classList.toggle('listening', on);
+    if (on) {
+        rxStateIcon.innerText = '🟢';
+        rxStateText.innerText = 'Listening for incoming audio data...';
+        updateListenState('Listening');
+    } else {
+        rxStateIcon.innerText = '🎤';
+        rxStateText.innerText = 'Audio capture paused. Tap the mic to listen.';
+        updateListenState(engineStatusLabel && engineStatusLabel.classList.contains('ready') ? 'Ready' : 'Paused');
+    }
+}
+
+function disconnectCaptureGraph() {
+    if (recorderNode) {
+        recorderNode.onaudioprocess = null;
+        try { recorderNode.disconnect(); } catch (_) { /* already disconnected */ }
+        recorderNode = null;
+    }
+    if (analyserNode) {
+        try { analyserNode.disconnect(); } catch (_) { /* already disconnected */ }
+        analyserNode = null;
+    }
+    if (mediaStreamNode) {
+        try { mediaStreamNode.disconnect(); } catch (_) { /* already disconnected */ }
+        mediaStreamNode = null;
+    }
+    if (microphoneStream) {
+        microphoneStream.getTracks().forEach((track) => {
+            try { track.enabled = false; } catch (_) { /* ignore */ }
+            try { track.stop(); } catch (_) { /* already stopped */ }
+        });
+        microphoneStream = null;
+    }
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+}
+
 function startAudioCapture() {
     if (!audioContext || !ggwave) return;
+
+    const token = ++captureToken;
+    isCapturing = true;
+    setCaptureUi(true);
 
     if (audioContext.state === 'suspended') {
         audioContext.resume();
@@ -803,8 +851,17 @@ function startAudioCapture() {
     };
 
     navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
+        if (token !== captureToken || !isCapturing) {
+            stream.getTracks().forEach((track) => {
+                try { track.enabled = false; } catch (_) { /* ignore */ }
+                track.stop();
+            });
+            return;
+        }
+
         micAccessGranted = true;
         localStorage.setItem('wavest_mic_granted', '1');
+        disconnectCaptureGraph();
         microphoneStream = stream;
         mediaStreamNode = audioContext.createMediaStreamSource(stream);
 
@@ -819,10 +876,12 @@ function startAudioCapture() {
         }
 
         const handleDecodedBytes = async (bytes) => {
+            if (token !== captureToken || !isCapturing) return;
             try {
                 const rawText = new TextDecoder('utf-8').decode(bytes);
                 console.log('Successfully decoded raw sonic payload:', rawText);
                 const parsed = await parseReceivedPacket(rawText);
+                if (token !== captureToken || !isCapturing) return;
                 appendMessage(parsed.sender, parsed.message, 'received', parsed.encrypted, parsed.decrypted);
                 playReceivedChime();
             } catch (decodeErr) {
@@ -832,7 +891,7 @@ function startAudioCapture() {
 
         let isProcessingAudio = false;
         recorderNode.onaudioprocess = async (e) => {
-            if (isTransmitting || isProcessingAudio) return;
+            if (token !== captureToken || !isCapturing || isTransmitting || isProcessingAudio) return;
 
             const channelDataCopy = new Float32Array(e.inputBuffer.getChannelData(0));
             isProcessingAudio = true;
@@ -863,17 +922,10 @@ function startAudioCapture() {
 
         mediaStreamNode.connect(recorderNode);
         recorderNode.connect(audioContext.destination);
-
-        isCapturing = true;
-        captureToggleBtn.classList.add('active');
-        captureToggleBtn.setAttribute('aria-pressed', 'true');
-        captureToggleBtn.setAttribute('aria-label', 'Stop listening');
-        if (statusIndicator) statusIndicator.classList.add('listening');
-        rxStateIcon.innerText = '🟢';
-        rxStateText.innerText = 'Listening for incoming audio data...';
-        updateListenState('Listening');
     }).catch((err) => {
+        if (token !== captureToken) return;
         console.error('Microphone capture stream failed:', err);
+        stopAudioCapture();
         rxStateIcon.innerText = '❌';
         rxStateText.innerText = 'Permission denied. Mic is unavailable.';
         if (isMicPermissionError(err) && !micAccessGranted) {
@@ -883,31 +935,10 @@ function startAudioCapture() {
 }
 
 function stopAudioCapture() {
-    if (recorderNode) {
-        recorderNode.disconnect();
-        recorderNode = null;
-    }
-    if (mediaStreamNode) {
-        mediaStreamNode.disconnect();
-        mediaStreamNode = null;
-    }
-    if (microphoneStream) {
-        microphoneStream.getTracks().forEach(track => track.stop());
-        microphoneStream = null;
-    }
-    if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-    }
-
+    captureToken += 1;
     isCapturing = false;
-    captureToggleBtn.classList.remove('active');
-    captureToggleBtn.setAttribute('aria-pressed', 'false');
-    captureToggleBtn.setAttribute('aria-label', 'Start listening');
-    if (statusIndicator) statusIndicator.classList.remove('listening');
-    rxStateIcon.innerText = '🎤';
-    rxStateText.innerText = 'Audio capture paused. Tap the mic to listen.';
-    updateListenState(engineStatusLabel && engineStatusLabel.classList.contains('ready') ? 'Ready' : 'Paused');
+    disconnectCaptureGraph();
+    setCaptureUi(false);
     resizeCanvases();
 }
 
