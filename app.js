@@ -430,8 +430,7 @@ function registerServiceWorker() {
 
 function resizeCanvases() {
     if (!sendVizCanvas || !sendVizCtx) return;
-    const parent = sendVizCanvas.parentElement;
-    const w = parent ? parent.clientWidth : 300;
+    const w = sendVizCanvas.clientWidth || 300;
     const h = sendVizCanvas.clientHeight || 168;
     sendVizCanvas.width = Math.max(2, w);
     sendVizCanvas.height = Math.max(2, h);
@@ -577,11 +576,12 @@ function startSendViz(floatArray, encrypted = false) {
         const slice = w / columns;
         for (let i = 0; i < columns; i++) {
             const t = bloomed[i];
-            if (t < 0.08) continue;
-            const barH = t * h * 0.9;
+            if (t < 0.05) continue;
+            const barH = t * h * 0.96;
             const x = Math.floor(i * slice) - 2;
             const gradient = sendVizCtx.createLinearGradient(0, h, 0, h - barH);
-            gradient.addColorStop(0, `rgba(${rgb}, ${0.04 + t * 0.14})`);
+            gradient.addColorStop(0, `rgba(${rgb}, ${0.09 + t * 0.24})`);
+            gradient.addColorStop(0.55, `rgba(${rgb}, ${0.03 + t * 0.1})`);
             gradient.addColorStop(1, `rgba(${rgb}, 0)`);
             sendVizCtx.fillStyle = gradient;
             sendVizCtx.fillRect(x, h - barH, Math.ceil(slice) + 5, barH);

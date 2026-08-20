@@ -238,6 +238,8 @@ html.theme-ready {
     --kb-js: 0px;
     --kb-inset: var(--kb-js);
     --composer-pad-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    --composer-pad-x: 12px;
+    --composer-gap: 8px;
     --composer-row-h: 42px;
     --nav-btn-size: 48px;
 }
@@ -574,18 +576,18 @@ html.layout-debug-on .composer::after {
 
 .send-viz {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: calc(var(--composer-pad-x) + var(--composer-row-h) + var(--composer-gap));
+    right: var(--composer-pad-x);
     bottom: calc(var(--composer-pad-bottom) + var(--composer-row-h) + var(--kb-inset, 0px));
-    width: 100%;
-    height: 36%;
-    max-height: 260px;
+    width: auto;
+    height: 38%;
+    max-height: 270px;
     pointer-events: none;
     z-index: 1;
     opacity: 0;
     transition: opacity 0.45s ease;
-    -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.45) 52%, transparent 100%);
-    mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.45) 52%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.62) 48%, rgba(0, 0, 0, 0.22) 78%, transparent 100%);
+    mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.62) 48%, rgba(0, 0, 0, 0.22) 78%, transparent 100%);
 }
 
 .send-viz.active {
@@ -743,7 +745,7 @@ html.layout-debug-on .composer::after {
     bottom: var(--kb-inset, 0px);
     background: transparent;
     border-top: none;
-    padding: 0 12px var(--composer-pad-bottom);
+    padding: 0 var(--composer-pad-x) var(--composer-pad-bottom);
     z-index: 10;
     pointer-events: none;
 }
@@ -756,14 +758,14 @@ html.layout-debug-on .composer::after {
     pointer-events: auto;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--composer-gap);
 }
 
 .mic-btn {
     position: relative;
-    flex: 0 0 42px;
-    width: 42px;
-    height: 42px;
+    flex: 0 0 var(--composer-row-h);
+    width: var(--composer-row-h);
+    height: var(--composer-row-h);
     border: 0.5px solid var(--glass-stroke);
     border-radius: 50%;
     background: var(--glass-tint);
@@ -1036,52 +1038,26 @@ html.layout-debug-on .composer::after {
     box-shadow: var(--glass-shadow), 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
-#close-settings-btn {
+#close-settings-btn,
+#save-contact-btn {
     width: var(--nav-btn-size);
     height: var(--nav-btn-size);
 }
 
-#close-settings-btn svg {
+#close-settings-btn svg,
+#save-contact-btn svg {
     width: 22px;
     height: 22px;
 }
 
-.glass-pill {
-    width: auto;
-    height: auto;
-    border-radius: 18px;
-    padding: 7px 14px;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: -0.2px;
-    cursor: pointer;
+#save-contact-btn {
     justify-self: end;
 }
 
-.glass-pill:disabled {
-    color: var(--text-tertiary);
+#save-contact-btn:disabled {
+    opacity: 0.4;
     cursor: default;
-    opacity: 0.55;
-}
-
-.glass-pill:not(:disabled):active {
-    transform: scale(0.96);
-    opacity: 0.86;
-}
-
-#save-contact-btn {
-    height: var(--nav-btn-size);
-    min-width: var(--nav-btn-size);
-    padding: 0 18px;
-    border-radius: calc(var(--nav-btn-size) / 2);
-    font-size: 17px;
-}
-
-#save-contact-btn:not(:disabled) {
-    background: var(--accent);
-    color: #fff;
-    border: 0.5px solid var(--glass-stroke);
-    box-shadow: var(--glass-shadow), 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
+    pointer-events: none;
 }
 
 .settings-link,
@@ -1439,14 +1415,14 @@ button.ios-row:last-child {
 .mini-composer {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 6px 7px;
+    gap: 5px;
+    padding: 1px 14px 10px;
     flex-shrink: 0;
 }
 
 .mini-mic {
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     flex-shrink: 0;
     box-sizing: border-box;
@@ -1454,7 +1430,7 @@ button.ios-row:last-child {
 
 .mini-field {
     flex: 1;
-    height: 12px;
+    height: 16px;
     border-radius: 99px;
     box-sizing: border-box;
 }
