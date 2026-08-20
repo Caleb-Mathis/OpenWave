@@ -15,7 +15,7 @@ OpenWave is an offline messaging platform that allows any device with a micropho
 
 ## Try it [here](https://xcloud.zip/chat).
 
-<img src="https://github.com/Caleb-Mathis/OpenWave/blob/main/screenshots/chat.jpg?raw=true" alt="App Screenshot" width="42%">
+<img src="https://github.com/Caleb-Mathis/OpenWave/blob/main/screenshots/chat.jpg?raw=true" alt="App Screenshot" width="350">
 
 
 > <sub>Based on Wavest by Benn Jordan & GGWave by Georgi Gerganov.</sub>
