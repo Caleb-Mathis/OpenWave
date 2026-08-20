@@ -18,6 +18,7 @@ let txVolume = 0.6; // Outgoing volume multiplier (0.1 - 1.0)
 let rxGain = 1.0; // Microphone input gain multiplier
 let isCapturing = false;
 let isTransmitting = false;
+let txPending = false; // covers the async gap before isTransmitting is set
 let soundFeedbackEnabled = true;
 let micAccessGranted = localStorage.getItem('wavest_mic_granted') === '1';
 
@@ -439,6 +440,14 @@ function resizeCanvases() {
 
 // Set up UI inputs, slider changes, sidebars
 function setupUIEventListeners() {
+    // A pointer gesture is the only thing Safari accepts as an audio unlock,
+    // so grab every one of them rather than relying on the send handler alone.
+    document.addEventListener('pointerdown', () => {
+        if (audioContext && audioContext.state !== 'running') {
+            audioContext.resume().catch(() => {});
+        }
+    }, true);
+
     // Send message triggers
     sendBtn.addEventListener('click', transmitMessage);
     messageInput.addEventListener('keydown', (e) => {
@@ -612,6 +621,27 @@ function initAudio() {
         ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
         console.log(`Audio Context initialized. Sample Rate: ${audioContext.sampleRate} Hz`);
     }
+}
+
+// Safari only unlocks an AudioContext from a pointer/touch gesture. Sending with
+// the Enter key leaves it suspended, which makes start() a silent no-op and stops
+// currentTime, so onended never fires either. Always resume before output.
+async function ensureAudioReady() {
+    try {
+        initAudio();
+    } catch (err) {
+        console.error('Audio init failed:', err);
+        return false;
+    }
+    if (!audioContext) return false;
+    if (audioContext.state !== 'running') {
+        try {
+            await audioContext.resume();
+        } catch (err) {
+            console.warn('AudioContext resume failed:', err);
+        }
+    }
+    return audioContext.state === 'running';
 }
 
 function toggleAudioCapture() {
@@ -802,9 +832,18 @@ function playTransmissionFeedback(callback) {
 // Send text message (Modulation + Playback)
 async function transmitMessage() {
     const text = messageInput.value.trim();
-    if (!text) return;
-    
-    initAudio();
+    if (!text || isTransmitting || txPending) return;
+
+    txPending = true;
+    try {
+        if (!(await ensureAudioReady())) {
+            showToast('Audio is blocked. Tap the screen, then send again.', true);
+            return;
+        }
+    } finally {
+        txPending = false;
+    }
+
     messageInput.value = '';
     sendBtn.disabled = true;
     isTransmitting = true;
@@ -844,18 +883,28 @@ async function transmitMessage() {
                 bufferSource.buffer = playBuffer;
                 bufferSource.connect(audioContext.destination);
                 
-                // On complete callback
-                bufferSource.onended = () => {
+                // onended never fires if the context stalls or is suspended mid-send,
+                // which would latch isTransmitting and disable Send until reload.
+                let settled = false;
+                let watchdog = null;
+                const finishTransmit = () => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(watchdog);
                     isTransmitting = false;
                     stopSendViz();
                     updateSendEnabled();
-                    console.log('Transmission audio output finished.');
-                    
+
                     // Restore microphone listening state
                     if (wasListening) {
                         rxStateText.innerText = 'Listening for incoming audio data...';
                     }
                 };
+                watchdog = setTimeout(
+                    finishTransmit,
+                    (floatArray.length / playSampleRate) * 1000 + 750
+                );
+                bufferSource.onended = finishTransmit;
                 
                 const isEncrypted = encryptionEnabled && !!myPasskey;
                 appendMessage(myCallsign, text, 'sent', isEncrypted);
@@ -924,60 +973,98 @@ function appendSystemMessage(title, text, isError = false) {
 }
 
 // Diagnostics Self-Test
-function runDiagnosticsLoopback() {
-    initAudio();
+async function runDiagnosticsLoopback() {
+    const line = (text) => { testResult.innerText += text; };
+
     testResult.innerText = 'Running tests...';
     testResult.style.color = 'var(--text-secondary)';
 
-    setTimeout(() => {
-        try {
-            const testPayload = 'PING_LOOPBACK_TEST_OK';
-            
-            // 1. Test wave modulation
-            testResult.innerText += '\n[1/3] Modulating test signal...';
-            const activeProto = getActiveProtocol();
-            const waveformBuffer = ggwave.encode(
-                ggwaveInstance,
-                testPayload,
-                activeProto,
-                10
-            );
+    const running = await ensureAudioReady();
+    if (!audioContext) {
+        testResult.innerText += '\n[FAILED] Audio engine unavailable. Wait for ggwave to finish loading.';
+        testResult.style.color = 'var(--accent-red)';
+        return;
+    }
 
-            if (!waveformBuffer || waveformBuffer.length === 0) {
-                throw new Error('Modulator returned empty buffer');
-            }
-            testResult.innerText += ' OK';
+    // 1. Report the real output state. A suspended context or a hardware rate the
+    // engine was not built for is silent transmission, not a modulation failure.
+    line(`\n[1/4] Audio output: ${audioContext.state}, ${audioContext.sampleRate} Hz`);
+    const channels = audioContext.destination.channelCount;
+    const maxChannels = audioContext.destination.maxChannelCount;
+    line(`\n      channels ${channels}/${maxChannels}, band ${protocolShortName()} ${RATE_NAMES[protocolRate]}`);
+    if (!running) {
+        line('\n[FAILED] AudioContext is suspended, so nothing can play. Tap the screen and retry.');
+        testResult.style.color = 'var(--accent-red)';
+        return;
+    }
 
-            // 2. Mock audio buffer mapping
-            testResult.innerText += '\n[2/3] Mapping float waveform...';
-            const floatArray = convertTypedArray(waveformBuffer, Float32Array);
-            testResult.innerText += ` OK (${floatArray.length} samples)`;
+    try {
+        const testPayload = 'PING_LOOPBACK_TEST_OK';
 
-            // 3. Test demodulation decoding loop
-            testResult.innerText += '\n[3/3] Demodulating loopback...';
-            
-            // To simulate physical capture, we convert Float32 waveform values
-            // and pipe them directly into ggwave's decode function block
-            const samplesInt8 = convertTypedArray(floatArray, Int8Array);
-            const decodedBytes = ggwave.decode(ggwaveInstance, samplesInt8);
-            
-            if (decodedBytes && decodedBytes.length > 0) {
-                const text = new TextDecoder('utf-8').decode(decodedBytes);
-                if (text === testPayload) {
-                    testResult.innerText += '\n[SUCCESS] DECODE MATCHED!';
-                    testResult.style.color = 'var(--accent-green)';
-                } else {
-                    throw new Error(`Decoded payload mismatch. Got: "${text}"`);
-                }
-            } else {
-                throw new Error('Demodulator failed to detect sync boundaries.');
-            }
-        } catch (err) {
-            console.error('Diagnostics self-test failed:', err);
-            testResult.innerText += `\n[FAILED] ${err.message}`;
-            testResult.style.color = 'var(--accent-red)';
+        // 2. Modulate at the volume real sends use, not a fixed safe value.
+        line('\n[2/4] Modulating test signal...');
+        const waveformBuffer = ggwave.encode(
+            ggwaveInstance,
+            testPayload,
+            getActiveProtocol(),
+            Math.round(txVolume * 100)
+        );
+        if (!waveformBuffer || waveformBuffer.length === 0) {
+            throw new Error('Modulator returned empty buffer');
         }
-    }, 100);
+        const floatArray = convertTypedArray(waveformBuffer, Float32Array);
+        let peak = 0;
+        for (let i = 0; i < floatArray.length; i++) {
+            const mag = Math.abs(floatArray[i]);
+            if (mag > peak) peak = mag;
+        }
+        line(` OK (${floatArray.length} samples, peak ${peak.toFixed(2)})`);
+        if (peak > 1) line('\n      WARNING: waveform clips. Lower Tx Volume.');
+
+        // 3. Demodulate the buffer in memory to prove the codec round-trips.
+        line('\n[3/4] Demodulating loopback...');
+        const decodedBytes = ggwave.decode(ggwaveInstance, convertTypedArray(floatArray, Int8Array));
+        if (!decodedBytes || decodedBytes.length === 0) {
+            throw new Error('Demodulator failed to detect sync boundaries.');
+        }
+        const text = new TextDecoder('utf-8').decode(decodedBytes);
+        if (text !== testPayload) throw new Error(`Decoded payload mismatch. Got: "${text}"`);
+        line(' OK');
+
+        // 4. Push it to the speakers. The in-memory pass above stays green even
+        // when nothing reaches the hardware, which is the failure worth catching.
+        line('\n[4/4] Playing through speakers...');
+        await playTestTone(floatArray);
+        line('\n[SUCCESS] Codec matched and audio reached the output device.');
+        testResult.style.color = 'var(--accent-green)';
+    } catch (err) {
+        console.error('Diagnostics self-test failed:', err);
+        line(`\n[FAILED] ${err.message}`);
+        testResult.style.color = 'var(--accent-red)';
+    }
+}
+
+// Play a waveform and resolve once the device has actually consumed it.
+function playTestTone(floatArray) {
+    return new Promise((resolve, reject) => {
+        const buffer = audioContext.createBuffer(1, floatArray.length, audioContext.sampleRate);
+        buffer.getChannelData(0).set(floatArray);
+
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+
+        const duration = floatArray.length / audioContext.sampleRate;
+        const timer = setTimeout(
+            () => reject(new Error('Output stalled. The device never played the buffer.')),
+            duration * 1000 + 1500
+        );
+        source.onended = () => {
+            clearTimeout(timer);
+            resolve();
+        };
+        source.start(0);
+    });
 }
 
 // ==========================================
@@ -1821,8 +1908,18 @@ function applyProtocol({ persist = true, reinit = true } = {}) {
     if (reinit && ggwaveInstance && audioContext && ggwaveParameters) {
         ggwaveParameters.sampleRateInp = audioContext.sampleRate;
         ggwaveParameters.sampleRateOut = audioContext.sampleRate;
+        // init allocates inside the wasm heap; without free every slider step leaks.
+        const stale = [ggwaveInstance, ggwaveInstanceShifted];
         ggwaveInstance = ggwave.init(ggwaveParameters);
         ggwaveInstanceShifted = ggwave.init(ggwaveParameters);
+        stale.forEach((inst) => {
+            if (inst == null || !ggwave.free) return;
+            try {
+                ggwave.free(inst);
+            } catch (err) {
+                console.warn('ggwave.free failed:', err);
+            }
+        });
     }
 }
 
