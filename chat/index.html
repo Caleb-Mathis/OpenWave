@@ -92,7 +92,11 @@
                 <div class="settings-page is-active" data-page="root">
                     <div class="sheet-header">
                         <h2>Settings</h2>
-                        <button id="close-settings-btn" class="glass-btn glass-pill" type="button">Done</button>
+                        <button id="close-settings-btn" class="icon-btn glass-btn accent-glass-btn" type="button" aria-label="Done">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M5 12.5 9.5 17 19 7" />
+                            </svg>
+                        </button>
                     </div>
                     <div class="sidebar-content">
                         <div class="ios-group">
@@ -145,7 +149,7 @@
                         </div>
                         <div class="settings-attribution">
                             <p>OpenWave v1.0 by Caleb Mathis</p>
-                            <p>Built on Wavest by Benn Jordan &amp; GGWave by Georgi Gerganov.</p>
+                            <p>Based on Wavest by Benn Jordan &amp; GGWave by Georgi Gerganov.</p>
                         </div>
                     </div>
                 </div>
@@ -254,7 +258,7 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                         </button>
                         <h3 id="contact-edit-title">Add Contact</h3>
-                        <button type="button" class="glass-btn glass-pill" id="save-contact-btn">Save</button>
+                        <button type="button" class="glass-btn glass-pill" id="save-contact-btn" disabled>Save</button>
                     </div>
                     <div class="sidebar-content">
                         <div class="ios-group">
@@ -288,19 +292,39 @@
                     </div>
                     <div class="sidebar-content">
                         <div class="ios-group">
-                            <p class="ios-caption">Mode</p>
-                            <div class="ios-inset">
-                                <button type="button" class="ios-row settings-link" id="theme-dark-btn">
-                                    <span>Dark</span>
-                                    <span class="row-check" id="theme-dark-check" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
-                                    </span>
+                            <p class="ios-caption">Theme</p>
+                            <div class="theme-picker">
+                                <button type="button" class="theme-card" id="theme-dark-btn" aria-pressed="true">
+                                    <div class="theme-preview preview-midnight">
+                                        <div class="mini-chrome"></div>
+                                        <div class="mini-thread">
+                                            <span class="mini-recv"></span>
+                                            <span class="mini-sent"></span>
+                                            <span class="mini-recv mini-recv-sm"></span>
+                                            <span class="mini-sent mini-sent-enc"></span>
+                                        </div>
+                                        <div class="mini-composer">
+                                            <span class="mini-mic"></span>
+                                            <span class="mini-field"></span>
+                                        </div>
+                                    </div>
+                                    <span class="theme-name"><span class="theme-radio" aria-hidden="true"></span>Dark</span>
                                 </button>
-                                <button type="button" class="ios-row settings-link" id="theme-light-btn">
-                                    <span>Light</span>
-                                    <span class="row-check" id="theme-light-check" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
-                                    </span>
+                                <button type="button" class="theme-card" id="theme-light-btn" aria-pressed="false">
+                                    <div class="theme-preview preview-classic">
+                                        <div class="mini-chrome"></div>
+                                        <div class="mini-thread">
+                                            <span class="mini-recv"></span>
+                                            <span class="mini-sent"></span>
+                                            <span class="mini-recv mini-recv-sm"></span>
+                                            <span class="mini-sent mini-sent-enc"></span>
+                                        </div>
+                                        <div class="mini-composer">
+                                            <span class="mini-mic"></span>
+                                            <span class="mini-field"></span>
+                                        </div>
+                                    </div>
+                                    <span class="theme-name"><span class="theme-radio" aria-hidden="true"></span>Light</span>
                                 </button>
                             </div>
                         </div>

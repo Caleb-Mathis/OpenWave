@@ -82,6 +82,11 @@ window.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvases);
 
     applyTheme(localStorage.getItem('wavest_theme') || 'midnight', false);
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            document.documentElement.classList.add('theme-ready');
+        });
+    });
     applyBubbleColors();
     setupViewportLock();
     setupLayoutDebug();
@@ -1380,20 +1385,50 @@ function popSettingsPage() {
     showSettingsPage(settingsStack[settingsStack.length - 1]);
 }
 
-function closeSettings() {
+function resetSettingsSheet() {
     if (!settingsSidebar) return;
-    settingsSidebar.classList.add('is-closing');
-    settingsSidebar.classList.remove('open');
+    settingsSidebar.classList.remove('is-closing', 'is-swipe-closing', 'is-swiping', 'is-swipe-settling');
+    settingsSidebar.style.transform = '';
+    settingsSidebar.style.transition = '';
+    settingsStack = ['root'];
+    document.querySelectorAll('.settings-page.is-leaving').forEach((page) => {
+        page.classList.remove('is-leaving');
+    });
+    showSettingsPage('root');
+}
+
+function closeSettings(options = {}) {
+    if (!settingsSidebar) return;
+    const fromSwipe = !!options.fromSwipe;
     settingsSidebar.setAttribute('aria-hidden', 'true');
     if (sidebarOverlay) sidebarOverlay.classList.remove('visible');
-    setTimeout(() => {
-        settingsSidebar.classList.remove('is-closing');
-        settingsStack = ['root'];
-        document.querySelectorAll('.settings-page.is-leaving').forEach((page) => {
-            page.classList.remove('is-leaving');
-        });
-        showSettingsPage('root');
-    }, 400);
+
+    if (fromSwipe) {
+        settingsSidebar.classList.remove('is-swiping');
+        settingsSidebar.style.transition = 'transform 0.32s cubic-bezier(0.4, 0.06, 0.2, 1)';
+        settingsSidebar.style.transform = 'translateX(110%)';
+        let settled = false;
+        const settle = () => {
+            if (settled) return;
+            settled = true;
+            settingsSidebar.classList.add('is-swipe-settling');
+            settingsSidebar.classList.remove('open');
+            settingsSidebar.style.transition = 'none';
+            settingsSidebar.style.transform = '';
+            settingsSidebar.offsetHeight;
+            settingsSidebar.classList.remove('is-swipe-settling');
+            resetSettingsSheet();
+        };
+        settingsSidebar.addEventListener('transitionend', (e) => {
+            if (e.propertyName === 'transform') settle();
+        }, { once: true });
+        setTimeout(settle, 400);
+        return;
+    }
+
+    settingsSidebar.classList.add('is-closing');
+    settingsSidebar.classList.remove('open');
+    setTimeout(resetSettingsSheet, 400);
 }
 
 function bindSettingsRowPress(el, onActivate) {
@@ -1442,6 +1477,180 @@ function bindSettingsNavigation() {
     document.querySelectorAll('[data-pop]').forEach((btn) => {
         btn.addEventListener('click', popSettingsPage);
     });
+    bindInteractiveBackGesture();
+}
+
+function bindInteractiveBackGesture() {
+    if (!settingsSidebar) return;
+
+    const EDGE = 28;
+    const PAGE_EASE = 'transform 0.48s cubic-bezier(0.22, 0.9, 0.24, 1)';
+    const CLOSE_EASE = 'transform 0.32s cubic-bezier(0.4, 0.06, 0.2, 1)';
+    let tracking = false;
+    let locked = false;
+    let pointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let startT = 0;
+    let dx = 0;
+    let mode = null;
+    let leaveEl = null;
+    let behindEl = null;
+
+    const clearInline = (el) => {
+        if (!el) return;
+        el.style.transform = '';
+        el.style.transition = '';
+        el.classList.remove('is-swiping');
+    };
+
+    const reset = () => {
+        tracking = false;
+        locked = false;
+        pointerId = null;
+        dx = 0;
+        mode = null;
+        leaveEl = null;
+        behindEl = null;
+    };
+
+    const width = () => settingsSidebar.getBoundingClientRect().width || window.innerWidth;
+
+    const applyDrag = () => {
+        const w = width();
+        const x = Math.max(0, Math.min(dx, w));
+        if (mode === 'pop' && leaveEl) {
+            leaveEl.style.transform = `translateX(${x}px)`;
+            if (behindEl) {
+                behindEl.style.transform = `translateX(${-0.22 * w + 0.22 * x}px)`;
+            }
+        } else if (mode === 'close') {
+            settingsSidebar.style.transform = `translateX(${x}px)`;
+        }
+    };
+
+    const shouldCommit = (w) => {
+        const elapsed = Math.max(16, performance.now() - startT);
+        const vx = dx / elapsed;
+        return dx > w * 0.32 || vx > 0.55;
+    };
+
+    const finishPop = (commit) => {
+        const leavingPage = leaveEl;
+        const behindPage = behindEl;
+        if (leavingPage) leavingPage.classList.remove('is-swiping');
+        if (behindPage) behindPage.classList.remove('is-swiping');
+        if (leavingPage) leavingPage.style.transition = PAGE_EASE;
+        if (behindPage) behindPage.style.transition = PAGE_EASE;
+        if (commit) {
+            if (leavingPage) {
+                leavingPage.style.transform = 'translateX(100%)';
+                leavingPage.classList.add('is-leaving');
+            }
+            if (behindPage) behindPage.style.transform = 'translateX(0)';
+            settingsStack.pop();
+            showSettingsPage(settingsStack[settingsStack.length - 1]);
+            setTimeout(() => {
+                if (leavingPage) leavingPage.classList.remove('is-leaving');
+                clearInline(leavingPage);
+                clearInline(behindPage);
+            }, 500);
+        } else {
+            if (leavingPage) leavingPage.style.transform = 'translateX(0)';
+            if (behindPage) behindPage.style.transform = 'translateX(-22%)';
+            setTimeout(() => {
+                clearInline(leavingPage);
+                clearInline(behindPage);
+            }, 480);
+        }
+    };
+
+    const finishClose = (commit) => {
+        settingsSidebar.classList.remove('is-swiping');
+        if (commit) {
+            closeSettings({ fromSwipe: true });
+            return;
+        }
+        settingsSidebar.style.transition = CLOSE_EASE;
+        settingsSidebar.style.transform = 'translateX(0)';
+        setTimeout(() => {
+            if (!settingsSidebar.classList.contains('open')) return;
+            settingsSidebar.style.transition = 'none';
+            settingsSidebar.style.transform = '';
+            settingsSidebar.offsetHeight;
+            settingsSidebar.style.transition = '';
+        }, 340);
+    };
+
+    settingsSidebar.addEventListener('pointerdown', (e) => {
+        if (!settingsSidebar.classList.contains('open')) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        const rect = settingsSidebar.getBoundingClientRect();
+        if (e.clientX - rect.left > EDGE) return;
+        if (e.target.closest('input, textarea, select, .ios-switch')) return;
+
+        tracking = true;
+        locked = false;
+        pointerId = e.pointerId;
+        startX = e.clientX;
+        startY = e.clientY;
+        startT = performance.now();
+        dx = 0;
+        mode = settingsStack.length > 1 ? 'pop' : 'close';
+        if (mode === 'pop') {
+            const topId = settingsStack[settingsStack.length - 1];
+            const behindId = settingsStack[settingsStack.length - 2];
+            leaveEl = document.querySelector(`.settings-page[data-page="${topId}"]`);
+            behindEl = document.querySelector(`.settings-page[data-page="${behindId}"]`);
+        }
+        try { settingsSidebar.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+    });
+
+    settingsSidebar.addEventListener('pointermove', (e) => {
+        if (!tracking || e.pointerId !== pointerId) return;
+        const mx = e.clientX - startX;
+        const my = e.clientY - startY;
+        if (!locked) {
+            if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+            if (mx < 4 || Math.abs(my) > Math.abs(mx) * 1.15) {
+                tracking = false;
+                try { settingsSidebar.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+                reset();
+                return;
+            }
+            locked = true;
+            if (mode === 'pop') {
+                if (leaveEl) leaveEl.classList.add('is-swiping');
+                if (behindEl) behindEl.classList.add('is-swiping');
+            } else {
+                settingsSidebar.classList.add('is-swiping');
+            }
+        }
+        dx = mx;
+        applyDrag();
+        e.preventDefault();
+    });
+
+    const endGesture = (e) => {
+        if (!tracking || (e && e.pointerId !== pointerId)) return;
+        const wasLocked = locked;
+        const commit = wasLocked && shouldCommit(width());
+        const currentMode = mode;
+        tracking = false;
+        locked = false;
+        if (wasLocked) {
+            if (currentMode === 'pop') finishPop(commit);
+            else finishClose(commit);
+        }
+        reset();
+    };
+
+    settingsSidebar.addEventListener('pointerup', endGesture);
+    settingsSidebar.addEventListener('pointercancel', endGesture);
+
+    settingsSidebar.addEventListener('touchmove', (e) => {
+        if (locked) e.preventDefault();
+    }, { passive: false });
 }
 
 function cssVar(name, fallback) {
@@ -1735,10 +1944,17 @@ function syncColorInputs() {
 
 function syncAppearanceChecks() {
     const theme = document.documentElement.getAttribute('data-theme') || 'midnight';
-    const dark = document.getElementById('theme-dark-check');
-    const light = document.getElementById('theme-light-check');
-    if (dark) dark.classList.toggle('is-on', theme !== 'classic');
-    if (light) light.classList.toggle('is-on', theme === 'classic');
+    const dark = document.getElementById('theme-dark-btn');
+    const light = document.getElementById('theme-light-btn');
+    const isLight = theme === 'classic';
+    if (dark) {
+        dark.classList.toggle('selected', !isLight);
+        dark.setAttribute('aria-pressed', String(!isLight));
+    }
+    if (light) {
+        light.classList.toggle('selected', isLight);
+        light.setAttribute('aria-pressed', String(isLight));
+    }
 }
 
 function bindAppearanceSettings() {
@@ -1747,10 +1963,10 @@ function bindAppearanceSettings() {
     const sent = document.getElementById('color-sent');
     const enc = document.getElementById('color-sent-enc');
     if (darkBtn) {
-        bindSettingsRowPress(darkBtn, () => applyTheme('midnight', true));
+        darkBtn.addEventListener('click', () => applyTheme('midnight', true));
     }
     if (lightBtn) {
-        bindSettingsRowPress(lightBtn, () => applyTheme('classic', true));
+        lightBtn.addEventListener('click', () => applyTheme('classic', true));
     }
     if (sent) {
         sent.addEventListener('input', () => {
