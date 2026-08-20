@@ -88,7 +88,7 @@
             <span id="rx-state-text" class="visually-hidden">Tap the mic to listen</span>
         </footer>
 
-        <section id="settings-sidebar" class="settings-sheet" aria-hidden="true">
+        <section id="settings-sidebar" class="settings-sheet" aria-hidden="true" inert>
             <div class="settings-pages">
                 <div class="settings-page is-active" data-page="root">
                     <div class="sheet-header">
@@ -179,21 +179,21 @@
                                         <label for="protocol-rate">Rate</label>
                                         <span class="row-value" id="protocol-rate-val">Fastest</span>
                                     </div>
-                                    <input type="range" id="protocol-rate" min="0" max="2" step="1" value="2">
+                                    <input type="range" id="protocol-rate" min="0" max="2" step="1" value="2" tabindex="-1">
                                 </div>
                                 <div class="ios-row stack">
                                     <div class="ios-row-main">
                                         <label for="volume-range">Tx Volume</label>
                                         <span class="row-value"><span id="volume-val">60</span>%</span>
                                     </div>
-                                    <input type="range" id="volume-range" min="10" max="100" value="60">
+                                    <input type="range" id="volume-range" min="10" max="100" value="60" tabindex="-1">
                                 </div>
                                 <div class="ios-row stack">
                                     <div class="ios-row-main">
                                         <label for="sensitivity-range">Rx Gain</label>
                                         <span class="row-value"><span id="sensitivity-val">1.0</span>x</span>
                                     </div>
-                                    <input type="range" id="sensitivity-range" min="0.5" max="3.0" step="0.1" value="1.0">
+                                    <input type="range" id="sensitivity-range" min="0.5" max="3.0" step="0.1" value="1.0" tabindex="-1">
                                 </div>
                                 <div class="ios-row">
                                     <label for="sound-feedback-toggle">Tx Audio Feedback</label>
@@ -339,11 +339,11 @@
                             <div class="ios-inset">
                                 <label class="ios-row" for="color-sent">
                                     <span>Unencrypted</span>
-                                    <input type="color" id="color-sent" class="color-chip" value="#0a84ff">
+                                    <input type="color" id="color-sent" class="color-chip" value="#0a84ff" tabindex="-1">
                                 </label>
                                 <label class="ios-row" for="color-sent-enc">
                                     <span>Encrypted</span>
-                                    <input type="color" id="color-sent-enc" class="color-chip" value="#9d3bff">
+                                    <input type="color" id="color-sent-enc" class="color-chip" value="#9d3bff" tabindex="-1">
                                 </label>
                             </div>
                             <div class="ios-inset" style="margin-top:12px">

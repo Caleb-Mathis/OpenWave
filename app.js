@@ -171,6 +171,13 @@ function isTextField(el) {
         && type !== 'submit' && type !== 'range' && type !== 'color';
 }
 
+function dismissKeyboard() {
+    const el = document.activeElement;
+    if (el && el !== document.body && typeof el.blur === 'function') {
+        el.blur();
+    }
+}
+
 function hapticsEnabled(el) {
     if (!el) return false;
     let node = el;
@@ -1484,10 +1491,9 @@ function bindSecureSettingsListeners() {
 }
 
 function syncPasskeyEnabled() {
-    const passkeyInput = document.getElementById('passkey-input');
     const passkeyRow = document.getElementById('passkey-row');
-    if (passkeyInput) passkeyInput.disabled = !encryptionEnabled;
     if (passkeyRow) passkeyRow.classList.toggle('is-disabled', !encryptionEnabled);
+    syncInteractiveSurfaces();
 }
 
 function escapeHtml(text) {
@@ -1552,6 +1558,7 @@ function openContactEditor(callsign) {
 }
 
 function saveContactEditor() {
+    dismissKeyboard();
     const callInput = document.getElementById('contact-callsign-input');
     const keyInput = document.getElementById('contact-key-input');
     const call = ((callInput && callInput.value) || '').replace(/[|:]/g, '').trim();
@@ -1564,6 +1571,63 @@ function saveContactEditor() {
     popSettingsPage();
 }
 
+function settingsIsOpen() {
+    return !!(settingsSidebar && settingsSidebar.getAttribute('aria-hidden') === 'false');
+}
+
+const TEXT_FIELD_IDS = [
+    'message-input',
+    'callsign-input',
+    'passkey-input',
+    'contact-callsign-input',
+    'contact-key-input',
+];
+
+function syncInteractiveSurfaces() {
+    const open = settingsIsOpen();
+    const composer = document.querySelector('.composer');
+    if (composer) {
+        if (open) composer.setAttribute('inert', '');
+        else composer.removeAttribute('inert');
+    }
+    if (settingsSidebar) {
+        if (open) settingsSidebar.removeAttribute('inert');
+        else settingsSidebar.setAttribute('inert', '');
+    }
+
+    const top = settingsStack[settingsStack.length - 1];
+    document.querySelectorAll('.settings-page').forEach((page) => {
+        const pid = page.getAttribute('data-page');
+        if (open && pid === top) page.removeAttribute('inert');
+        else page.setAttribute('inert', '');
+    });
+
+    let activeIds = [];
+    if (!open) activeIds = ['message-input'];
+    else if (top === 'identity') activeIds = ['callsign-input', 'passkey-input'];
+    else if (top === 'contact-edit') activeIds = ['contact-callsign-input', 'contact-key-input'];
+
+    TEXT_FIELD_IDS.forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const on = activeIds.includes(id);
+        if (on) {
+            if (id === 'passkey-input' && !encryptionEnabled) el.disabled = true;
+            else el.disabled = false;
+        } else if (document.activeElement === el) {
+            el.blur();
+            el.disabled = true;
+        } else {
+            el.disabled = true;
+        }
+    });
+
+    const trapped = document.activeElement;
+    if (trapped && trapped.closest && trapped.closest('[inert]')) {
+        trapped.blur();
+    }
+}
+
 function showSettingsPage(id) {
     document.querySelectorAll('.settings-page').forEach((page) => {
         const pid = page.getAttribute('data-page');
@@ -1573,6 +1637,7 @@ function showSettingsPage(id) {
         page.classList.toggle('is-active', isTop);
         page.classList.toggle('is-behind', isBehind);
     });
+    syncInteractiveSurfaces();
 }
 
 function pushSettingsPage(id) {
@@ -1583,6 +1648,7 @@ function pushSettingsPage(id) {
 
 function popSettingsPage() {
     if (settingsStack.length < 2) return;
+    dismissKeyboard();
     const leaving = settingsStack.pop();
     const leaveEl = document.querySelector(`.settings-page[data-page="${leaving}"]`);
     if (leaveEl) {
@@ -1607,9 +1673,11 @@ function resetSettingsSheet() {
 
 function openSettings() {
     if (!settingsSidebar) return;
+    dismissKeyboard();
     resetSettingsSheet();
     settingsSidebar.setAttribute('aria-hidden', 'false');
     if (sidebarOverlay) sidebarOverlay.classList.add('visible');
+    syncInteractiveSurfaces();
     if (settingsSidebar.classList.contains('open')) return;
     void settingsSidebar.offsetWidth;
     settingsSidebar.classList.add('open');
@@ -1617,8 +1685,10 @@ function openSettings() {
 
 function closeSettings(options = {}) {
     if (!settingsSidebar) return;
+    dismissKeyboard();
     const fromSwipe = !!options.fromSwipe;
     settingsSidebar.setAttribute('aria-hidden', 'true');
+    syncInteractiveSurfaces();
     if (sidebarOverlay) sidebarOverlay.classList.remove('visible');
 
     if (fromSwipe) {
@@ -1689,6 +1759,13 @@ function bindSettingsRowPress(el, onActivate) {
 }
 
 function bindSettingsNavigation() {
+    document.addEventListener('pointerdown', (event) => {
+        const target = event.target && event.target.closest
+            ? event.target.closest('#open-settings-btn, #save-contact-btn, #close-settings-btn, [data-pop], #sidebar-overlay, #add-contact-btn, [data-push]')
+            : null;
+        if (target) dismissKeyboard();
+    }, { passive: true });
+
     if (openSettingsBtn) {
         onHapticTap(openSettingsBtn, openSettings);
     }
@@ -1702,6 +1779,7 @@ function bindSettingsNavigation() {
         onHapticTap(btn, popSettingsPage);
     });
     bindInteractiveBackGesture();
+    syncInteractiveSurfaces();
 }
 
 function bindInteractiveBackGesture() {
@@ -1773,6 +1851,7 @@ function bindInteractiveBackGesture() {
         if (leavingPage) leavingPage.style.transition = PAGE_EASE;
         if (behindPage) behindPage.style.transition = PAGE_EASE;
         if (commit) {
+            dismissKeyboard();
             if (leavingPage) {
                 leavingPage.style.transform = 'translate3d(100%, 0, 0)';
                 leavingPage.classList.add('is-leaving');
