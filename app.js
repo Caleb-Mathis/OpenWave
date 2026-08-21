@@ -1556,6 +1556,7 @@ function renderContactList() {
         const row = document.createElement('button');
         row.type = 'button';
         row.className = 'ios-row settings-link';
+        row.setAttribute('data-haptic', 'off');
         row.innerHTML = `
             <span>${escapeHtml(name)}</span>
             <span class="settings-chevron" aria-hidden="true">
@@ -1663,7 +1664,7 @@ function popSettingsPage() {
     if (leaveEl) {
         leaveEl.classList.add('is-leaving');
         leaveEl.classList.remove('is-active');
-        setTimeout(() => leaveEl.classList.remove('is-leaving'), 480);
+        setTimeout(() => leaveEl.classList.remove('is-leaving'), motionMs('--page-duration', 370) + 40);
     }
     showSettingsPage(settingsStack[settingsStack.length - 1]);
 }
@@ -1748,7 +1749,7 @@ function bindSettingsRowPress(el, onActivate) {
             delete el.dataset.opening;
             held = false;
             el.classList.remove('is-pressed');
-        }, 420);
+        }, motionMs('--page-duration', 370));
     };
     el.addEventListener('pointerdown', () => {
         held = true;
@@ -1796,8 +1797,12 @@ function bindInteractiveBackGesture() {
 
     const EDGE = 28;
     const PAGE_EASE = motionTransform(
-        '--page-duration', '--ease-out-spring',
-        '0.42s', 'cubic-bezier(0.2, 0.75, 0.45, 1)'
+        '--page-duration', '--page-ease',
+        '0.37s', 'cubic-bezier(0.215, 0.61, 0.355, 1)'
+    );
+    const PAGE_SWIPE_EASE = motionTransform(
+        '--page-swipe-duration', '--page-swipe-ease',
+        '0.24s', 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     );
     const CLOSE_EASE = motionTransform(
         '--sheet-out-duration', '--sheet-out-ease',
@@ -1857,8 +1862,9 @@ function bindInteractiveBackGesture() {
         const behindPage = behindEl;
         if (leavingPage) leavingPage.classList.remove('is-swiping');
         if (behindPage) behindPage.classList.remove('is-swiping');
-        if (leavingPage) leavingPage.style.transition = PAGE_EASE;
-        if (behindPage) behindPage.style.transition = PAGE_EASE;
+        if (leavingPage) leavingPage.style.transition = PAGE_SWIPE_EASE;
+        if (behindPage) behindPage.style.transition = PAGE_SWIPE_EASE;
+        const swipeSettle = motionMs('--page-swipe-duration', 240) + 40;
         if (commit) {
             dismissKeyboard();
             if (leavingPage) {
@@ -1872,14 +1878,14 @@ function bindInteractiveBackGesture() {
                 if (leavingPage) leavingPage.classList.remove('is-leaving');
                 clearInline(leavingPage);
                 clearInline(behindPage);
-            }, 480);
+            }, swipeSettle);
         } else {
             if (leavingPage) leavingPage.style.transform = 'translate3d(0, 0, 0)';
             if (behindPage) behindPage.style.transform = 'translate3d(-22%, 0, 0)';
             setTimeout(() => {
                 clearInline(leavingPage);
                 clearInline(behindPage);
-            }, 450);
+            }, swipeSettle);
         }
     };
 
@@ -1890,7 +1896,7 @@ function bindInteractiveBackGesture() {
             return;
         }
         settingsSidebar.style.transition = CLOSE_EASE;
-        settingsSidebar.style.transform = 'translate3d(0, 0, 0)';
+        settingsSidebar.style.transform = 'translate3d(0, 0, 0.1px)';
         setTimeout(() => {
             if (!settingsSidebar.classList.contains('open')) return;
             settingsSidebar.style.transition = 'none';
@@ -1974,6 +1980,14 @@ function bindInteractiveBackGesture() {
 function cssVar(name, fallback) {
     const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return value || fallback;
+}
+
+function motionMs(name, fallbackMs) {
+    const raw = cssVar(name, '');
+    const n = parseFloat(raw);
+    if (!Number.isFinite(n) || n < 0) return fallbackMs;
+    if (/\dms$/i.test(raw)) return n;
+    return n * 1000;
 }
 
 function motionTransform(durationVar, easeVar, durationFallback, easeFallback) {

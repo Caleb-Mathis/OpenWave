@@ -493,17 +493,17 @@ html.layout-debug-on .composer::after {
 
 .nav-subtitle-text.incoming {
     opacity: 0;
-    transform: translateY(7px);
+    transform: translate3d(0, 7px, 0);
 }
 
 .nav-subtitle-text.incoming.is-in {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
 }
 
 .nav-subtitle-text.outgoing.is-out {
     opacity: 0;
-    transform: translateY(-7px);
+    transform: translate3d(0, -7px, 0);
 }
 
 .icon-btn {
@@ -927,45 +927,23 @@ html.layout-debug-on .composer::after {
     color: var(--accent-red);
 }
 
-/* --- Settings sheet --- */
+/* --- Settings motion (durations + easing) ---
+   Sheet open (slide up):     --sheet-in-duration / --sheet-in-ease
+   Sheet close (slide down):  --sheet-out-duration / --sheet-out-ease
+   Page push (Acoustic etc.): --page-duration / --page-ease
+   Page back (chevron):       --page-duration / --page-pop-ease
+   Page back (edge swipe):    --page-swipe-duration / --page-swipe-ease
+*/
 :root {
-    --sheet-in-duration: 0.45s;
+    --sheet-in-duration: 0.38s;
+    --sheet-in-ease: cubic-bezier(0.25, 0.55, 0.6, 0.94);
     --sheet-out-duration: 0.4s;
     --sheet-out-ease: cubic-bezier(0.4, 0.06, 0.2, 1);
-    --page-duration: 0.42s;
-    --ease-out-spring: cubic-bezier(0.2, 0.75, 0.45, 1);
-}
-
-@supports (transition-timing-function: linear(0, 1)) {
-    :root {
-        --ease-out-spring: linear(
-            0,
-            0.103 4.2%,
-            0.218 8.3%,
-            0.3335 12.5%,
-            0.4424 16.7%,
-            0.5409 20.8%,
-            0.6274 25%,
-            0.7016 29.2%,
-            0.7638 33.3%,
-            0.8153 37.5%,
-            0.8573 41.7%,
-            0.891 45.8%,
-            0.9177 50%,
-            0.9387 54.2%,
-            0.9549 58.3%,
-            0.9674 62.5%,
-            0.9768 66.7%,
-            0.9839 70.8%,
-            0.9891 75%,
-            0.9929 79.2%,
-            0.9956 83.3%,
-            0.9975 87.5%,
-            0.9988 91.7%,
-            0.9996 95.8%,
-            1
-        );
-    }
+    --page-duration: 0.37s;
+    --page-ease: cubic-bezier(0.215, 0.61, 0.355, 1);
+    --page-pop-ease: cubic-bezier(0.4, 0.06, 0.2, 1);
+    --page-swipe-duration: 0.24s;
+    --page-swipe-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .settings-sheet {
@@ -977,12 +955,12 @@ html.layout-debug-on .composer::after {
     flex-direction: column;
     overflow: hidden;
     transform: translate3d(0, 100%, 0);
-    transition: transform var(--sheet-in-duration) var(--ease-out-spring);
+    transition: transform var(--sheet-in-duration) var(--sheet-in-ease);
     will-change: transform;
 }
 
 .settings-sheet.open {
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0.1px);
 }
 
 .settings-sheet.is-closing {
@@ -1017,9 +995,10 @@ html.layout-debug-on .composer::after {
     flex-direction: column;
     background: var(--bg-grouped);
     transform: translate3d(100%, 0, 0);
-    transition: transform var(--page-duration) var(--ease-out-spring);
+    transition: transform var(--page-duration) var(--page-ease);
     pointer-events: none;
     z-index: 0;
+    contain: layout style;
 }
 
 .settings-page.is-active {
@@ -1038,6 +1017,7 @@ html.layout-debug-on .composer::after {
     transform: translate3d(100%, 0, 0);
     pointer-events: none;
     z-index: 3;
+    transition-timing-function: var(--page-pop-ease);
 }
 
 .settings-sheet,
@@ -1046,10 +1026,28 @@ html.layout-debug-on .composer::after {
     -webkit-backface-visibility: hidden;
 }
 
-.settings-page.is-swiping,
-.settings-page.is-leaving,
-.settings-page.is-active:not([data-page="root"]) {
-    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.28);
+.settings-sheet.open .settings-page {
+    will-change: transform;
+}
+
+.settings-page::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 28px;
+    transform: translate3d(-100%, 0, 0);
+    pointer-events: none;
+    z-index: 4;
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.28), transparent);
+    opacity: 0;
+}
+
+.settings-page.is-swiping::after,
+.settings-page.is-leaving::after,
+.settings-page.is-active:not([data-page="root"])::after {
+    opacity: 1;
 }
 
 .sheet-header {
