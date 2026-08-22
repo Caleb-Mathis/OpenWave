@@ -1683,6 +1683,7 @@ function resetSettingsSheet() {
     settingsSidebar.classList.remove('is-closing', 'is-swipe-closing', 'is-swiping', 'is-swipe-settling');
     settingsSidebar.style.transform = '';
     settingsSidebar.style.transition = '';
+    settingsSidebar.style.animation = '';
     settingsStack = ['root'];
     document.querySelectorAll('.settings-page.is-leaving').forEach((page) => {
         page.classList.remove('is-leaving');
@@ -1790,6 +1791,13 @@ function bindSettingsNavigation() {
     }
     if (closeSettingsBtn) onHapticTap(closeSettingsBtn, closeSettings);
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSettings);
+    if (settingsSidebar) {
+        settingsSidebar.addEventListener('animationend', (event) => {
+            if (event.target !== settingsSidebar) return;
+            if (event.animationName !== 'settings-sheet-in') return;
+            settingsSidebar.style.animation = 'none';
+        });
+    }
 
     document.querySelectorAll('[data-push]').forEach((btn) => {
         bindSettingsRowPress(btn, () => pushSettingsPage(btn.getAttribute('data-push')));

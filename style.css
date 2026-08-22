@@ -928,15 +928,14 @@ html.layout-debug-on .composer::after {
 }
 
 /* --- Settings motion (durations + easing) ---
-   Sheet open (slide up):     --sheet-in-duration / --sheet-in-ease
+   Sheet open (slide up):     --sheet-in-duration + settings-sheet-in keyframes
    Sheet close (slide down):  --sheet-out-duration / --sheet-out-ease
    Page push (Acoustic etc.): --page-duration / --page-ease
    Page back (chevron):       --page-duration / --page-pop-ease
    Page back (edge swipe):    --page-swipe-duration / --page-swipe-ease
 */
 :root {
-    --sheet-in-duration: 0.34s;
-    --sheet-in-ease: cubic-bezier(0.25, 0.55, 0.22, 1);
+    --sheet-in-duration: 0.4s;
     --sheet-out-duration: 0.36s;
     --sheet-out-ease: cubic-bezier(0.4, 0.06, 0.2, 1);
     --page-duration: 0.33s;
@@ -944,6 +943,44 @@ html.layout-debug-on .composer::after {
     --page-pop-ease: cubic-bezier(0.4, 0.06, 0.2, 1);
     --page-swipe-duration: 0.21s;
     --page-swipe-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Same settle as before, baked into keyframes so WebKit can compositor-accelerate.
+   CSS linear() easing is not accelerated and caps at 60fps (30fps in Low Power Mode). */
+@keyframes settings-sheet-in {
+    0% { transform: translate3d(0, 100%, 0); }
+    3.12% { transform: translate3d(0, 92.2377%, 0); }
+    6.25% { transform: translate3d(0, 82.4275%, 0); }
+    9.38% { transform: translate3d(0, 72.0027%, 0); }
+    12.5% { transform: translate3d(0, 61.8259%, 0); }
+    15.62% { transform: translate3d(0, 52.3806%, 0); }
+    18.75% { transform: translate3d(0, 43.9032%, 0); }
+    21.88% { transform: translate3d(0, 36.4743%, 0); }
+    25% { transform: translate3d(0, 30.0798%, 0); }
+    28.12% { transform: translate3d(0, 24.6517%, 0); }
+    31.25% { transform: translate3d(0, 20.095%, 0); }
+    34.38% { transform: translate3d(0, 16.3044%, 0); }
+    37.5% { transform: translate3d(0, 13.1749%, 0); }
+    40.62% { transform: translate3d(0, 10.6078%, 0); }
+    43.75% { transform: translate3d(0, 8.5135%, 0); }
+    46.88% { transform: translate3d(0, 6.813%, 0); }
+    50% { transform: translate3d(0, 5.4381%, 0); }
+    53.12% { transform: translate3d(0, 4.3305%, 0); }
+    56.25% { transform: translate3d(0, 3.4412%, 0); }
+    59.38% { transform: translate3d(0, 2.7291%, 0); }
+    62.5% { transform: translate3d(0, 2.1606%, 0); }
+    65.62% { transform: translate3d(0, 1.7077%, 0); }
+    68.75% { transform: translate3d(0, 1.3476%, 0); }
+    71.88% { transform: translate3d(0, 1.062%, 0); }
+    75% { transform: translate3d(0, 0.8358%, 0); }
+    78.12% { transform: translate3d(0, 0.657%, 0); }
+    81.25% { transform: translate3d(0, 0.5159%, 0); }
+    84.38% { transform: translate3d(0, 0.4046%, 0); }
+    87.5% { transform: translate3d(0, 0.317%, 0); }
+    90.62% { transform: translate3d(0, 0.2482%, 0); }
+    93.75% { transform: translate3d(0, 0.1941%, 0); }
+    96.88% { transform: translate3d(0, 0.1517%, 0); }
+    100% { transform: translate3d(0, 0, 0.1px); }
 }
 
 .settings-sheet {
@@ -955,21 +992,29 @@ html.layout-debug-on .composer::after {
     flex-direction: column;
     overflow: hidden;
     transform: translate3d(0, 100%, 0);
-    transition: transform var(--sheet-in-duration) var(--sheet-in-ease);
     will-change: transform;
 }
 
 .settings-sheet.open {
     transform: translate3d(0, 0, 0.1px);
+    animation: settings-sheet-in var(--sheet-in-duration) linear both;
+    transition: none;
 }
 
 .settings-sheet.is-closing {
+    animation: none;
     transition: transform var(--sheet-out-duration) var(--sheet-out-ease);
 }
 
 .settings-sheet.is-swiping,
 .settings-page.is-swiping {
     transition: none !important;
+}
+
+.settings-sheet.is-swiping,
+.settings-sheet.is-swipe-closing,
+.settings-sheet.is-swipe-settling {
+    animation: none !important;
 }
 
 .settings-sheet.is-swipe-closing {
@@ -1811,6 +1856,7 @@ input[type="range"]::-moz-range-thumb {
     .settings-sheet,
     .settings-page {
         transition: none !important;
+        animation: none !important;
     }
 }
 
