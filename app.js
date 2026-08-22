@@ -1653,13 +1653,24 @@ function showSettingsPage(id) {
 function pushSettingsPage(id) {
     if (settingsStack[settingsStack.length - 1] === id) return;
     const incoming = document.querySelector(`.settings-page[data-page="${id}"]`);
+    const outgoing = document.querySelector(`.settings-page[data-page="${settingsStack[settingsStack.length - 1]}"]`);
     if (incoming) {
-        incoming.classList.remove('is-active', 'is-behind', 'is-leaving');
+        incoming.classList.remove('is-active', 'is-behind', 'is-leaving', 'is-entering', 'is-receding');
+        incoming.style.animation = 'none';
         incoming.style.transition = 'none';
         incoming.style.transform = 'translate3d(100%, 0, 0)';
         incoming.offsetHeight;
         incoming.style.transition = '';
         incoming.style.transform = '';
+        incoming.style.animation = '';
+        incoming.classList.add('is-entering');
+    }
+    if (outgoing) {
+        outgoing.classList.remove('is-entering');
+        outgoing.style.animation = 'none';
+        outgoing.offsetHeight;
+        outgoing.style.animation = '';
+        outgoing.classList.add('is-receding');
     }
     settingsStack.push(id);
     showSettingsPage(id);
@@ -1668,6 +1679,10 @@ function pushSettingsPage(id) {
 function popSettingsPage() {
     if (settingsStack.length < 2) return;
     dismissKeyboard();
+    document.querySelectorAll('.settings-page.is-entering, .settings-page.is-receding').forEach((page) => {
+        page.style.animation = 'none';
+        page.classList.remove('is-entering', 'is-receding');
+    });
     const leaving = settingsStack.pop();
     const leaveEl = document.querySelector(`.settings-page[data-page="${leaving}"]`);
     if (leaveEl) {
@@ -1685,8 +1700,11 @@ function resetSettingsSheet() {
     settingsSidebar.style.transition = '';
     settingsSidebar.style.animation = '';
     settingsStack = ['root'];
-    document.querySelectorAll('.settings-page.is-leaving').forEach((page) => {
-        page.classList.remove('is-leaving');
+    document.querySelectorAll('.settings-page').forEach((page) => {
+        page.classList.remove('is-leaving', 'is-entering', 'is-receding');
+        page.style.animation = '';
+        page.style.transform = '';
+        page.style.transition = '';
     });
     showSettingsPage('root');
 }
@@ -1793,9 +1811,16 @@ function bindSettingsNavigation() {
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSettings);
     if (settingsSidebar) {
         settingsSidebar.addEventListener('animationend', (event) => {
-            if (event.target !== settingsSidebar) return;
-            if (event.animationName !== 'settings-sheet-in') return;
-            settingsSidebar.style.animation = 'none';
+            const name = event.animationName;
+            if (name === 'settings-sheet-in' && event.target === settingsSidebar) {
+                settingsSidebar.style.animation = 'none';
+                return;
+            }
+            if (name !== 'settings-page-in' && name !== 'settings-page-recede') return;
+            const page = event.target;
+            if (!page.classList || !page.classList.contains('settings-page')) return;
+            page.style.animation = 'none';
+            page.classList.remove('is-entering', 'is-receding');
         });
     }
 
@@ -1840,7 +1865,8 @@ function bindInteractiveBackGesture() {
         if (!el) return;
         el.style.transform = '';
         el.style.transition = '';
-        el.classList.remove('is-swiping');
+        el.style.animation = '';
+        el.classList.remove('is-swiping', 'is-entering', 'is-receding');
     };
 
     const reset = () => {
