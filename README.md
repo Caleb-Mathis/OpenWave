@@ -5,7 +5,7 @@ OpenWave is an offline messaging platform that allows any device with a micropho
 ## Features Included
 
 - Ultrasound & Audible Modes
-- Message Volume & Rate Settings
+- Transmission Volume & Rate Settings
 - Encryption & Contacts
 - Sleek iOS 27-style UI
 - iOS & Android Haptics *(WiP)*
