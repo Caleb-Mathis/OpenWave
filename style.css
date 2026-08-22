@@ -654,14 +654,14 @@ html.layout-debug-on .composer::after {
     align-self: flex-end;
     align-items: flex-end;
     transform-origin: 100% 100%;
-    animation: msg-sent 0.44s cubic-bezier(0.2, 0.85, 0.3, 1.12) both;
+    animation: msg-sent 0.42s var(--msg-ease) both;
 }
 
 .message.received {
     align-self: flex-start;
     align-items: flex-start;
     transform-origin: 0 100%;
-    animation: msg-recv 0.38s cubic-bezier(0.22, 0.8, 0.24, 1) both;
+    animation: msg-recv 0.4s var(--msg-ease) both;
 }
 
 .message.grouped {
@@ -1756,13 +1756,20 @@ input[type="range"]::-moz-range-thumb {
     display: none !important;
 }
 
-/* --- Motion --- */
+/* --- Motion ---
+   Shared ease-out for send/receive: no overshoot, lands at rest.
+   Opacity finishes first so the bubble is solid while it settles.
+*/
+:root {
+    --msg-ease: cubic-bezier(0.2, 0.7, 0.16, 1);
+}
+
 @keyframes msg-sent {
     0% {
         opacity: 0;
         transform: translate3d(10px, 22px, 0) scale(0.62);
     }
-    62% {
+    32% {
         opacity: 1;
     }
     100% {
@@ -1775,6 +1782,9 @@ input[type="range"]::-moz-range-thumb {
     0% {
         opacity: 0;
         transform: translate3d(-14px, 8px, 0) scale(0.9);
+    }
+    36% {
+        opacity: 1;
     }
     100% {
         opacity: 1;
