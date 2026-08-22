@@ -935,14 +935,14 @@ html.layout-debug-on .composer::after {
    Page back (edge swipe):    --page-swipe-duration / --page-swipe-ease
 */
 :root {
-    --sheet-in-duration: 0.38s;
-    --sheet-in-ease: cubic-bezier(0.25, 0.55, 0.6, 0.94);
-    --sheet-out-duration: 0.4s;
+    --sheet-in-duration: 0.34s;
+    --sheet-in-ease: cubic-bezier(0.25, 0.55, 0.22, 1);
+    --sheet-out-duration: 0.36s;
     --sheet-out-ease: cubic-bezier(0.4, 0.06, 0.2, 1);
-    --page-duration: 0.37s;
-    --page-ease: cubic-bezier(0.215, 0.61, 0.355, 1);
+    --page-duration: 0.33s;
+    --page-ease: cubic-bezier(0.32, 0.1, 0.2, 1);
     --page-pop-ease: cubic-bezier(0.4, 0.06, 0.2, 1);
-    --page-swipe-duration: 0.24s;
+    --page-swipe-duration: 0.21s;
     --page-swipe-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 

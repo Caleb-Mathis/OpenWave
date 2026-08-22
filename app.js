@@ -1652,6 +1652,15 @@ function showSettingsPage(id) {
 
 function pushSettingsPage(id) {
     if (settingsStack[settingsStack.length - 1] === id) return;
+    const incoming = document.querySelector(`.settings-page[data-page="${id}"]`);
+    if (incoming) {
+        incoming.classList.remove('is-active', 'is-behind', 'is-leaving');
+        incoming.style.transition = 'none';
+        incoming.style.transform = 'translate3d(100%, 0, 0)';
+        incoming.offsetHeight;
+        incoming.style.transition = '';
+        incoming.style.transform = '';
+    }
     settingsStack.push(id);
     showSettingsPage(id);
 }
@@ -1664,7 +1673,7 @@ function popSettingsPage() {
     if (leaveEl) {
         leaveEl.classList.add('is-leaving');
         leaveEl.classList.remove('is-active');
-        setTimeout(() => leaveEl.classList.remove('is-leaving'), motionMs('--page-duration', 370) + 40);
+        setTimeout(() => leaveEl.classList.remove('is-leaving'), motionMs('--page-duration', 330) + 40);
     }
     showSettingsPage(settingsStack[settingsStack.length - 1]);
 }
@@ -1705,7 +1714,7 @@ function closeSettings(options = {}) {
         settingsSidebar.classList.remove('is-swiping');
         settingsSidebar.style.transition = motionTransform(
             '--sheet-out-duration', '--sheet-out-ease',
-            '0.4s', 'cubic-bezier(0.4, 0.06, 0.2, 1)'
+            '0.36s', 'cubic-bezier(0.4, 0.06, 0.2, 1)'
         );
         settingsSidebar.style.transform = 'translate3d(110%, 0, 0)';
         let settled = false;
@@ -1723,13 +1732,13 @@ function closeSettings(options = {}) {
         settingsSidebar.addEventListener('transitionend', (e) => {
             if (e.propertyName === 'transform') settle();
         }, { once: true });
-        setTimeout(settle, 450);
+        setTimeout(settle, motionMs('--sheet-out-duration', 360) + 50);
         return;
     }
 
     settingsSidebar.classList.add('is-closing');
     settingsSidebar.classList.remove('open');
-    setTimeout(resetSettingsSheet, 450);
+    setTimeout(resetSettingsSheet, motionMs('--sheet-out-duration', 360) + 50);
 }
 
 function bindSettingsRowPress(el, onActivate) {
@@ -1749,7 +1758,7 @@ function bindSettingsRowPress(el, onActivate) {
             delete el.dataset.opening;
             held = false;
             el.classList.remove('is-pressed');
-        }, motionMs('--page-duration', 370));
+        }, motionMs('--page-duration', 330));
     };
     el.addEventListener('pointerdown', () => {
         held = true;
@@ -1798,15 +1807,15 @@ function bindInteractiveBackGesture() {
     const EDGE = 28;
     const PAGE_EASE = motionTransform(
         '--page-duration', '--page-ease',
-        '0.37s', 'cubic-bezier(0.215, 0.61, 0.355, 1)'
+        '0.33s', 'cubic-bezier(0.32, 0.1, 0.2, 1)'
     );
     const PAGE_SWIPE_EASE = motionTransform(
         '--page-swipe-duration', '--page-swipe-ease',
-        '0.24s', 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        '0.21s', 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
     );
     const CLOSE_EASE = motionTransform(
         '--sheet-out-duration', '--sheet-out-ease',
-        '0.4s', 'cubic-bezier(0.4, 0.06, 0.2, 1)'
+        '0.36s', 'cubic-bezier(0.4, 0.06, 0.2, 1)'
     );
     let tracking = false;
     let locked = false;
@@ -1864,7 +1873,7 @@ function bindInteractiveBackGesture() {
         if (behindPage) behindPage.classList.remove('is-swiping');
         if (leavingPage) leavingPage.style.transition = PAGE_SWIPE_EASE;
         if (behindPage) behindPage.style.transition = PAGE_SWIPE_EASE;
-        const swipeSettle = motionMs('--page-swipe-duration', 240) + 40;
+        const swipeSettle = motionMs('--page-swipe-duration', 210) + 40;
         if (commit) {
             dismissKeyboard();
             if (leavingPage) {
@@ -1903,7 +1912,7 @@ function bindInteractiveBackGesture() {
             settingsSidebar.style.transform = '';
             settingsSidebar.offsetHeight;
             settingsSidebar.style.transition = '';
-        }, 430);
+        }, motionMs('--sheet-out-duration', 360) + 30);
     };
 
     settingsSidebar.addEventListener('pointerdown', (e) => {
