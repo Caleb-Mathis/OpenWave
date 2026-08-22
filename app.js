@@ -42,6 +42,7 @@ let myPasskey = '';
 let contactKeys = {};
 let encryptionEnabled = false;
 let settingsStack = ['root'];
+let settingsSheetInRaf = 0;
 let editingCallsign = null;
 
 // Visualization configuration
@@ -1695,7 +1696,7 @@ function popSettingsPage() {
 
 function resetSettingsSheet() {
     if (!settingsSidebar) return;
-    settingsSidebar.classList.remove('is-closing', 'is-swipe-closing', 'is-swiping', 'is-swipe-settling');
+    settingsSidebar.classList.remove('is-closing', 'is-swipe-closing', 'is-swiping', 'is-swipe-settling', 'is-settled');
     settingsSidebar.style.transform = '';
     settingsSidebar.style.transition = '';
     settingsSidebar.style.animation = '';
@@ -1709,20 +1710,50 @@ function resetSettingsSheet() {
     showSettingsPage('root');
 }
 
+function cancelSettingsSheetIn() {
+    if (!settingsSheetInRaf) return;
+    cancelAnimationFrame(settingsSheetInRaf);
+    settingsSheetInRaf = 0;
+}
+
+function playSettingsSheetIn() {
+    if (!settingsSidebar || settingsSidebar.getAttribute('aria-hidden') === 'true') return;
+    settingsSidebar.classList.add('open');
+    const motion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (motion) {
+        settingsSidebar.classList.add('is-settled');
+        return;
+    }
+    if (typeof settingsSidebar.getAnimations !== 'function') return;
+    const animations = settingsSidebar.getAnimations();
+    for (let i = 0; i < animations.length; i++) {
+        const anim = animations[i];
+        if (anim.animationName === 'settings-sheet-in') anim.currentTime = 0;
+    }
+}
+
 function openSettings() {
     if (!settingsSidebar) return;
     dismissKeyboard();
+    cancelSettingsSheetIn();
     resetSettingsSheet();
     settingsSidebar.setAttribute('aria-hidden', 'false');
     if (sidebarOverlay) sidebarOverlay.classList.add('visible');
     syncInteractiveSurfaces();
     if (settingsSidebar.classList.contains('open')) return;
-    void settingsSidebar.offsetWidth;
-    settingsSidebar.classList.add('open');
+    // Layout/inert work in this turn would let WebKit sample settings-sheet-in
+    // ~100ms late (first paint already ~30% translated). Paint off-screen first.
+    settingsSheetInRaf = requestAnimationFrame(() => {
+        settingsSheetInRaf = requestAnimationFrame(() => {
+            settingsSheetInRaf = 0;
+            playSettingsSheetIn();
+        });
+    });
 }
 
 function closeSettings(options = {}) {
     if (!settingsSidebar) return;
+    cancelSettingsSheetIn();
     dismissKeyboard();
     const fromSwipe = !!options.fromSwipe;
     settingsSidebar.setAttribute('aria-hidden', 'true');
@@ -1756,7 +1787,9 @@ function closeSettings(options = {}) {
     }
 
     settingsSidebar.classList.add('is-closing');
-    settingsSidebar.classList.remove('open');
+    settingsSidebar.classList.remove('open', 'is-settled');
+    settingsSidebar.style.animation = '';
+    settingsSidebar.style.transform = '';
     setTimeout(resetSettingsSheet, motionMs('--sheet-out-duration', 360) + 50);
 }
 
@@ -1813,7 +1846,9 @@ function bindSettingsNavigation() {
         settingsSidebar.addEventListener('animationend', (event) => {
             const name = event.animationName;
             if (name === 'settings-sheet-in' && event.target === settingsSidebar) {
-                settingsSidebar.style.animation = 'none';
+                settingsSidebar.classList.add('is-settled');
+                settingsSidebar.style.animation = '';
+                settingsSidebar.style.transform = '';
                 return;
             }
             if (name !== 'settings-page-in' && name !== 'settings-page-recede') return;

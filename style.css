@@ -997,9 +997,16 @@ html.layout-debug-on .composer::after {
 }
 
 .settings-sheet.open {
-    transform: translate3d(0, 0, 0.1px);
-    animation: settings-sheet-in var(--sheet-in-duration) linear both;
+    /* Keep the off-screen transform as the underlying value while the spring
+       plays. Specifying the rest pose here lets WebKit paint a mid-sheet
+       frame before settings-sheet-in has sampled 0%. */
+    animation: settings-sheet-in var(--sheet-in-duration) linear forwards;
     transition: none;
+}
+
+.settings-sheet.open.is-settled {
+    animation: none;
+    transform: translate3d(0, 0, 0.1px);
 }
 
 .settings-sheet.is-closing {
@@ -1944,6 +1951,10 @@ input[type="range"]::-moz-range-thumb {
     .settings-page {
         transition: none !important;
         animation: none !important;
+    }
+
+    .settings-sheet.open {
+        transform: translate3d(0, 0, 0.1px);
     }
 }
 
